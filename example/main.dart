@@ -108,7 +108,6 @@ class CustomTypesExtDecoder implements ExtDecoder {
 }
 
 void main() {
-  // Serialize with custom extension
   final date = DateTime.utc(2021, 1, 1, 12, 32, 5, 880, 999);
   final userData = serialize(
     {

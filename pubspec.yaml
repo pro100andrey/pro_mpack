@@ -1,5 +1,5 @@
 name: pro_mpack
-description: pro_mpack - A Dart library for serializing and deserializing data in the MessagePack format.
+description: A Dart library for serializing and deserializing data in the MessagePack format.
 
 version: 1.0.0
 

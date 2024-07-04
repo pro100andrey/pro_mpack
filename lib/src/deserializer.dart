@@ -5,10 +5,24 @@ import 'dart:typed_data';
 
 import 'package:pro_binary/pro_binary.dart';
 
-/// A typedef for a custom extension decoder function. It takes an integer
-/// extension type and a Uint8List of data, and returns an Object.
-
+/// A mixin that provides functionality for decoding custom extension types.
+///
+/// This mixin is intended to be implemented by classes that handle the decoding
+/// of custom extension types in MessagePack format. The implementing class must
+/// provide the implementation for the `decodeObject` method.
 mixin ExtDecoder {
+  /// Decodes a custom extension type object.
+  ///
+  /// This method is called when a custom extension type object is encountered
+  /// during deserialization. The method should decode the object based on the
+  /// provided extension type and data.
+  ///
+  /// [extType] is the integer representing the custom extension type.
+  /// [data] is the binary data associated with the extension type.
+  ///
+  /// Returns the decoded object, or `null` if the object could not be decoded.
+  ///
+  /// Throws an [UnimplementedError] if the extension type is not recognized.
   Object? decodeObject(int extType, Uint8List data);
 }
 

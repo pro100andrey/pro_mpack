@@ -3,16 +3,36 @@ import 'dart:typed_data';
 
 import 'package:pro_binary/pro_binary.dart';
 
+/// A mixin that provides functionality for encoding custom extension types.
 ///
+/// This mixin is intended to be implemented by classes that handle the encoding
+/// of custom extension types in MessagePack format. The implementing class must
+/// provide the implementations for the `extTypeForObject` and `encodeObject`
+///  methods.
 mixin ExtEncoder {
   /// Returns the extension type for a given [object].
   ///
-  /// Returns `null` if the [object] cannot be encoded as an extension type.
+  /// This method determines the custom extension type integer that represents
+  /// the given [object]. If the object cannot be encoded as an extension type,
+  /// the method returns `null`.
+  ///
+  /// [object] is the object to be encoded as an extension type.
+  ///
+  /// Returns an integer representing the extension type, or `null` if the
+  /// object cannot be encoded.
   int? extTypeForObject(Object? object);
 
   /// Encodes a given [object] into a Uint8List.
   ///
-  /// Returns a Uint8List representing the encoded object.
+  /// This method serializes the given [object] into a binary format represented
+  /// by a `Uint8List`. It should be used for objects that can be encoded as
+  /// custom extension types.
+  ///
+  /// [object] is the object to be encoded.
+  ///
+  /// Returns a `Uint8List` representing the encoded object.
+  ///
+  /// Throws an [Exception] if the object cannot be encoded.
   Uint8List encodeObject(Object? object);
 }
 

@@ -4,18 +4,18 @@
 
 ## Features
 
-- Serialize and deserialize Dart objects to and from MessagePack format.
+- Serialize and deserialize Dart objects to and from [MessagePack](https://github.com/msgpack/msgpack/blob/master/spec.md#timestamp-extension-type) format.
 - Support for custom extension types.
 - Efficient binary encoding for various data types.
 - Full support for MessagePack's type system, including integers, strings, arrays, maps, and more.
 
 ## Installation
 
-Add pro_mpack to your `pubspec.yaml` file:
+Add `pro_mpack` to your `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  pro_mpack: ^1.0.0
+  pro_mpack: ^1.0.1
 ```
 
 Then `run pub get` to install the package.
@@ -190,10 +190,10 @@ To run the tests for `pro_mpack`, use the following command:
 dart pub run test
 ```
 
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
-
 ## Contributions
 
 Contributions are welcome! Please open an issue or submit a pull request on GitHub.
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
