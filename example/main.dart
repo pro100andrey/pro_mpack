@@ -1,46 +1,3 @@
-# pro_mpack
-
-`pro_mpack` is a Dart library for serializing and deserializing data using the [MessagePack](https://github.com/msgpack/msgpack/blob/master/spec.md#timestamp-extension-type) format. It supports custom extension types and efficient binary encoding, making it ideal for applications that require compact and fast data interchange.
-
-## Features
-
-- Serialize and deserialize Dart objects to and from MessagePack format.
-- Support for custom extension types.
-- Efficient binary encoding for various data types.
-- Full support for MessagePack's type system, including integers, strings, arrays, maps, and more.
-
-## Installation
-
-Add pro_mpack to your `pubspec.yaml` file:
-
-```yaml
-dependencies:
-  pro_mpack: ^1.0.0
-```
-
-Then `run pub get` to install the package.
-
-## Usage
-
-Basic Serialization and Deserialization
-
-```dart
-import 'package:pro_mpack/pro_mpack.dart';
-
-// Serialize an object
-final serializedData = serialize({'key': 'value'});
-
-// Deserialize the data back to an object
-final deserializedData = deserialize(serializedData);
-
-print(deserializedData); // Output: {key: value}
-```
-
-## Custom Extension Types
-
-To handle custom extension types, use mixin the `ExtEncoder` and `ExtDecoder`.
-
-``` dart
 import 'dart:typed_data';
 
 import 'package:pro_binary/pro_binary.dart';
@@ -171,6 +128,7 @@ void main() {
     extDecoder: CustomTypesExtDecoder(),
   );
 
+  // ignore: avoid_print
   print(deserializedData);
   // Output:
   // {
@@ -180,20 +138,3 @@ void main() {
   //  updated: 2021-01-02 12:32:05.880999Z
   //}
 }
-```
-
-## Running Tests
-
-To run the tests for `pro_mpack`, use the following command:
-
-```bash
-dart pub run test
-```
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
-
-## Contributions
-
-Contributions are welcome! Please open an issue or submit a pull request on GitHub.

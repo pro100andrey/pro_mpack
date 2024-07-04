@@ -1,46 +1,3 @@
-# pro_mpack
-
-`pro_mpack` is a Dart library for serializing and deserializing data using the [MessagePack](https://github.com/msgpack/msgpack/blob/master/spec.md#timestamp-extension-type) format. It supports custom extension types and efficient binary encoding, making it ideal for applications that require compact and fast data interchange.
-
-## Features
-
-- Serialize and deserialize Dart objects to and from MessagePack format.
-- Support for custom extension types.
-- Efficient binary encoding for various data types.
-- Full support for MessagePack's type system, including integers, strings, arrays, maps, and more.
-
-## Installation
-
-Add pro_mpack to your `pubspec.yaml` file:
-
-```yaml
-dependencies:
-  pro_mpack: ^1.0.0
-```
-
-Then `run pub get` to install the package.
-
-## Usage
-
-Basic Serialization and Deserialization
-
-```dart
-import 'package:pro_mpack/pro_mpack.dart';
-
-// Serialize an object
-final serializedData = serialize({'key': 'value'});
-
-// Deserialize the data back to an object
-final deserializedData = deserialize(serializedData);
-
-print(deserializedData); // Output: {key: value}
-```
-
-## Custom Extension Types
-
-To handle custom extension types, use mixin the `ExtEncoder` and `ExtDecoder`.
-
-``` dart
 import 'dart:typed_data';
 
 import 'package:pro_binary/pro_binary.dart';
@@ -49,23 +6,9 @@ import 'package:pro_mpack/pro_mpack.dart';
 enum TimeStampFormat {
   ts32,
   ts64,
-  ts96;
-
-  static TimeStampFormat fromLength(int length) {
-    switch (length) {
-      case 4:
-        return ts32;
-      case 8:
-        return ts64;
-      case 12:
-        return ts96;
-      default:
-        throw Exception('Invalid timestamp length');
-    }
-  }
+  ts96,
 }
 
-/// Custom extension encoder for serializing DateTime objects.
 class CustomTypesExtEncoder with ExtEncoder {
   CustomTypesExtEncoder({required this.timeStampFormat});
 
@@ -109,17 +52,15 @@ class CustomTypesExtEncoder with ExtEncoder {
   }
 }
 
-/// Custom extension decoder for deserializing DateTime objects.
 class CustomTypesExtDecoder implements ExtDecoder {
   @override
   Object? decodeObject(int extType, Uint8List data) {
     if (extType == -1) {
-      final type = TimeStampFormat.fromLength(data.length);
       final reader = BinaryReader(data);
-      switch (type) {
+      switch (data.length) {
         // Timestamp 32: stores the number of seconds that have elapsed since
         // 1970-01-01 00:00:00 UTC in a 32-bit unsigned integer.
-        case TimeStampFormat.ts32:
+        case 4:
           final seconds = reader.readUint32();
           return DateTime.fromMillisecondsSinceEpoch(
             seconds * 1000,
@@ -127,7 +68,7 @@ class CustomTypesExtDecoder implements ExtDecoder {
           );
         // Timestamp 64: stores the number of seconds and nanoseconds that have
         // elapsed since 1970-01-01 00:00:00 UTC in 32-bit unsigned integers.
-        case TimeStampFormat.ts64:
+        case 8:
           final nanoSeconds = reader.readUint32();
           final seconds = reader.readUint32();
           return DateTime.fromMillisecondsSinceEpoch(
@@ -137,63 +78,48 @@ class CustomTypesExtDecoder implements ExtDecoder {
         // Timestamp 96: stores the number of seconds and nanoseconds that have
         // elapsed since 1970-01-01 00:00:00 UTC in a 64-bit signed integer and
         // a 32-bit unsigned integer.
-        case TimeStampFormat.ts96:
+        case 12:
           final nanoSeconds = reader.readUint32();
           final seconds = reader.readInt64();
           return DateTime.fromMillisecondsSinceEpoch(
             seconds * 1000,
             isUtc: true,
           ).add(Duration(microseconds: nanoSeconds ~/ 1000));
+        default:
+          throw Exception('Invalid timestamp length');
       }
     }
     throw UnimplementedError();
   }
 }
 
-void main() {
-  // Serialize with custom extension
-  final date = DateTime.utc(2021, 1, 1, 12, 32, 5, 880, 999);
-  final userData = serialize(
-    {
-      'id': 1,
-      'name': 'John Doe',
-      'created': date,
-      'updated': date.add(const Duration(days: 1)),
-    },
-    extEncoder: CustomTypesExtEncoder(
-      timeStampFormat: TimeStampFormat.ts64,
-    ),
-  );
-
-  // Deserialize with custom extension
-  final deserializedData = deserialize(
-    userData,
-    extDecoder: CustomTypesExtDecoder(),
-  );
-
-  print(deserializedData);
-  // Output:
-  // {
-  //  id: 1,
-  //  name: John Doe,
-  //  created: 2021-01-01 12:32:05.880999Z,
-  //  updated: 2021-01-02 12:32:05.880999Z
-  //}
+class CustomExtDecoder with ExtDecoder {
+  @override
+  Object? decodeObject(int extType, Uint8List data) =>
+      'Custom ext type $extType with data $data';
 }
-```
 
-## Running Tests
+class CustomExtension {
+  CustomExtension(this.type, this.data);
+  final int type;
+  final Uint8List data;
+}
 
-To run the tests for `pro_mpack`, use the following command:
+class TestExtEncoder with ExtEncoder {
+  @override
+  int? extTypeForObject(Object? object) {
+    if (object is CustomExtension) {
+      return object.type;
+    }
+    return null;
+  }
 
-```bash
-dart pub run test
-```
+  @override
+  Uint8List encodeObject(Object? object) {
+    if (object is CustomExtension) {
+      return object.data;
+    }
 
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
-
-## Contributions
-
-Contributions are welcome! Please open an issue or submit a pull request on GitHub.
+    throw Exception('Unknown object type');
+  }
+}
