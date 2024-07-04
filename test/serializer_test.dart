@@ -244,21 +244,19 @@ void main() {
     ); // [1, 1, 1, ..., 1] (256 times)
   });
 
-  void main() {
-    test('Serialize array 32', () {
-      final result = serialize(List.filled(65536, 0x01));
-      expect(
-        result.sublist(0, 5),
-        Uint8List.fromList([
-          0xdd /* array 32 */,
-          0x00,
-          0x01,
-          0x00,
-          0x00,
-        ]),
-      ); // List with 65536 elements
-    });
-  }
+  test('Serialize array 32', () {
+    final result = serialize(List.filled(65536, 0x01));
+    expect(
+      result.sublist(0, 5),
+      Uint8List.fromList([
+        0xdd /* array 32 */,
+        0x00,
+        0x01,
+        0x00,
+        0x00,
+      ]),
+    ); // List with 65536 elements
+  });
 
   // Map formats
   test('Serialize fixmap', () {
