@@ -5,6 +5,10 @@
         "fixint",
         "Fixmap",
         "Fixstr",
-        "mpack"
+        "messagepack",
+        "mpack",
+        "msgpack",
+        "pubspec",
+        "sublist"
     ]
 }
