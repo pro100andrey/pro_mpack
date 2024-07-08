@@ -1,11 +1,11 @@
 # pro_mpack
 
-`pro_mpack` is a Dart library for serializing and deserializing data using the [MessagePack](https://github.com/msgpack/msgpack/blob/master/spec.md#timestamp-extension-type) format. It supports custom extension types and efficient binary encoding, making it ideal for applications that require compact and fast data interchange.
+This is a Dart library for serializing and deserializing data using the [MessagePack](https://github.com/msgpack/msgpack/blob/master/spec.md#messagepack-specification) format. It supports custom extension types and efficient binary encoding, making it ideal for applications that require compact and fast data interchange.
 
 ## Features
 
-- Serialize and deserialize Dart objects to and from [MessagePack](https://github.com/msgpack/msgpack/blob/master/spec.md#timestamp-extension-type) format.
-- Support for custom extension types.
+- Serialize and deserialize Dart objects to and from [MessagePack](https://github.com/msgpack/msgpack/blob/master/spec.md#messagepack-specification) format.
+- Support for [custom extension](https://github.com/msgpack/msgpack/blob/master/spec.md#extension-types) types.
 - Efficient binary encoding for various data types.
 - Full support for MessagePack's type system, including integers, strings, arrays, maps, and more.
 
