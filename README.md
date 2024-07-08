@@ -5,7 +5,7 @@ This is a Dart library for serializing and deserializing data using the [Message
 ## Features
 
 - Serialize and deserialize Dart objects to and from [MessagePack](https://github.com/msgpack/msgpack/blob/master/spec.md#messagepack-specification) format.
-- Support for [custom extension](https://github.com/msgpack/msgpack/blob/master/spec.md#extension-types) types.
+- Support for custom [extension types](https://github.com/msgpack/msgpack/blob/master/spec.md#extension-types).
 - Efficient binary encoding for various data types.
 - Full support for MessagePack's type system, including integers, strings, arrays, maps, and more.
 
