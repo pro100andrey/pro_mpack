@@ -192,7 +192,7 @@ dart pub run test
 
 ## Contributions
 
-Contributions are welcome! Please open an issue or submit a pull request on GitHub.
+Contributions are welcome! Please open an [issue](https://github.com/pro100andrey/pro_mpack/issues) or submit a [pull request](https://github.com/pro100andrey/pro_mpack/pulls) on GitHub.
 
 ## License
 
