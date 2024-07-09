@@ -20,8 +20,6 @@ topics:
   - mpack
   - msgpack
   - messagepack
-  - serialization
-  - deserialization
   - codec
   - binary
 
