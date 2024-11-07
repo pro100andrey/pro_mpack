@@ -15,7 +15,7 @@ Add `pro_mpack` to your `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  pro_mpack: ^1.1.0
+  pro_mpack: ^1.1.1
 ```
 
 Then `run pub get` to install the package.

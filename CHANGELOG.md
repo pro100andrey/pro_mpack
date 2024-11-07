@@ -1,3 +1,7 @@
+## 1.1.1
+
+- Update dependencies to the latest versions to ensure compatibility and stability.
+
 ## 1.1.0
 
 - Fix: Expanded test coverage to improve validation across a broader range of edge cases, enhancing overall reliability.
