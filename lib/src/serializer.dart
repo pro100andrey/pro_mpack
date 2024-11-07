@@ -52,11 +52,19 @@ class Serializer {
   /// Creates a Serializer with an optional [extEncoder].
   ///
   /// The [extEncoder] parameter is used for encoding custom extension types.
+  /// If provided, the serializer will use the encoder to serialize custom
+  /// extension types. Otherwise, custom extensions will not be encoded.
+  /// The [initialBufferSize] parameter specifies the initial size of the buffer
+  /// used for encoding. This value is used to optimize the encoding process by
+  /// reducing the number of reallocations. The default value is `64`.
   Serializer({
     ExtEncoder? extEncoder,
-  }) : _extEncoder = extEncoder;
+    int initialBufferSize = 64,
+  }) : _extEncoder = extEncoder {
+    _writer = BinaryWriter(initialBufferSize: initialBufferSize);
+  }
 
-  final _writer = BinaryWriter();
+  late final BinaryWriter _writer;
   final ExtEncoder? _extEncoder;
 
   /// Encodes a given [value] into MessagePack format.
@@ -106,15 +114,15 @@ class Serializer {
   void _writeNegativeInt(int value) {
     switch (value) {
       case >= -32:
-        _writer.writeUint8(value); // negative fixint
+        _writer.writeInt8(value /*negative fixint*/);
       case >= -128:
         _writer
           ..writeUint8(0xd0 /*int 8*/)
           ..writeInt8(value);
       case >= -32768:
         _writer
-          ..writeUint8(0xd1)
-          ..writeInt16(value /*int 16*/);
+          ..writeUint8(0xd1 /*int 16*/)
+          ..writeInt16(value);
       case >= -2147483648:
         _writer
           ..writeUint8(0xd2 /*int 32*/)
@@ -303,8 +311,12 @@ class Serializer {
           throw Exception('Size must be at most 0xFFFFFFFF');
       }
 
+      if (type < -128 || type > 127) {
+        throw Exception('Type must be in the range of -128 to 127');
+      }
+
       _writer
-        ..writeUint8(type)
+        ..writeInt8(type)
         ..writeBytes(encoded);
 
       return true;
