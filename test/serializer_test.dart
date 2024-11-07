@@ -434,4 +434,65 @@ void main() {
       ]),
     );
   });
+
+  test('Serialize unsupported object throws exception', () {
+    expect(() => serialize(Object()), throwsException);
+  });
+
+  test('Serialize int beyond fixint range', () {
+    final result = serialize(-33);
+    expect(result, Uint8List.fromList([0xd0, 0xdf]));
+  });
+
+  test('Serialize large uint 64', () {
+    final result = serialize(9223372036854775807);
+    expect(
+      result,
+      Uint8List.fromList(
+        [0xcf, 0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff],
+      ),
+    );
+  });
+
+  test('Serialize unsupported ext type', () {
+    final extEncoder = TestExtEncoder();
+    expect(
+      () => serialize(DateTime.now(), extEncoder: extEncoder),
+      throwsException,
+    );
+  });
+
+  test('Serialize array with complex objects', () {
+    final result = serialize([Float(3.14), 256, true]);
+
+    expect(
+      result,
+      Uint8List.fromList([
+        0x93, // fixarray (3)
+        0xca, 0x40, 0x48, 0xf5, 0xc3, // Float(3.14)
+        0xcd, 0x01, 0x00, // uint16 (256)
+        0xc3, // true
+      ]),
+    );
+  });
+
+  test('Serialize map with non-string keys', () {
+    final result = serialize({1: 'one', 2: 'two'});
+
+    expect(
+      result,
+      Uint8List.fromList([
+        0x82, // fixmap (2)
+        0x01, // int 1
+        0xa3, 0x6f, 0x6e, 0x65, // "one"
+        0x02, // int 2
+        0xa3, 0x74, 0x77, 0x6f, // "two"
+      ]),
+    );
+  });
+
+  test('Serialize empty map', () {
+    final result = serialize({});
+    expect(result, Uint8List.fromList([0x80]));
+  });
 }
