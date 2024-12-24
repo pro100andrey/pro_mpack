@@ -1,3 +1,7 @@
+## 2.0.0
+
+- Update dependencies to the latest versions, min sdk: ^3.6.0
+
 ## 1.1.1
 
 - Update dependencies to the latest versions to ensure compatibility and stability.
