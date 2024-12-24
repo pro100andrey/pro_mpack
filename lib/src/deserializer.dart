@@ -23,7 +23,7 @@ mixin ExtDecoder {
   /// Returns the decoded object, or `null` if the object could not be decoded.
   ///
   /// Throws an [UnimplementedError] if the extension type is not recognized.
-  Object? decodeObject(int extType, Uint8List data);
+  dynamic decodeObject(int extType, Uint8List data);
 }
 
 /// A class responsible for deserializing MessagePack-encoded data.
@@ -48,7 +48,7 @@ class Deserializer {
   /// of various types such as int, String, List, Map, or null.
   ///
   /// Throws an Exception if the buffer contains invalid MessagePack format.
-  Object? decode() {
+  dynamic decode() {
     final u = _reader.readUint8();
 
     // Positive fixint (0x00 - 0x7f): single-byte positive integer
@@ -200,7 +200,7 @@ class Deserializer {
     return String.fromCharCodes(bytes);
   }
 
-  Object? _readExt(int length) {
+  dynamic _readExt(int length) {
     final extType = _reader.readInt8();
     final data = _reader.readBytes(length);
 

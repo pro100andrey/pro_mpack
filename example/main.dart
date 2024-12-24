@@ -30,7 +30,7 @@ class CustomTypesExtEncoder with ExtEncoder {
   final TimeStampFormat timeStampFormat;
 
   @override
-  int? extTypeForObject(Object? object) {
+  int? extTypeForObject(dynamic object) {
     if (object is DateTime) {
       return -1;
     }
@@ -39,7 +39,7 @@ class CustomTypesExtEncoder with ExtEncoder {
   }
 
   @override
-  Uint8List encodeObject(Object? object) {
+  Uint8List encodeObject(dynamic object) {
     if (object is DateTime) {
       final writer = BinaryWriter();
 
@@ -69,7 +69,7 @@ class CustomTypesExtEncoder with ExtEncoder {
 /// Custom extension decoder for deserializing DateTime objects.
 class CustomTypesExtDecoder implements ExtDecoder {
   @override
-  Object? decodeObject(int extType, Uint8List data) {
+  dynamic decodeObject(int extType, Uint8List data) {
     if (extType == -1) {
       final type = TimeStampFormat.fromLength(data.length);
       final reader = BinaryReader(data);

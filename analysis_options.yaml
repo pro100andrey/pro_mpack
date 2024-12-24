@@ -1,3 +1,10 @@
 
 include: package:pro_lints/common.yaml
 
+
+linter:
+  rules:
+    avoid_annotating_with_dynamic: false
+
+
+

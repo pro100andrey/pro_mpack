@@ -20,7 +20,7 @@ mixin ExtEncoder {
   ///
   /// Returns an integer representing the extension type, or `null` if the
   /// object cannot be encoded.
-  int? extTypeForObject(Object? object);
+  int? extTypeForObject(dynamic object);
 
   /// Encodes a given [object] into a Uint8List.
   ///
@@ -33,7 +33,7 @@ mixin ExtEncoder {
   /// Returns a `Uint8List` representing the encoded object.
   ///
   /// Throws an [Exception] if the object cannot be encoded.
-  Uint8List encodeObject(Object? object);
+  Uint8List encodeObject(dynamic object);
 }
 
 /// A class representing a custom floating-point number.
@@ -43,7 +43,7 @@ class Float {
   final double value;
 
   @override
-  String toString() => value.toString();
+  String toString() => 'Float($value)';
 }
 
 /// A class responsible for serializing various data types into MessagePack
@@ -71,7 +71,7 @@ class Serializer {
   ///
   /// The [value] can be of various types such as int, double, String, List,
   /// Map, or null.
-  void encode(Object? value) {
+  void encode(dynamic value) {
     switch (value) {
       case null:
         _writer.writeUint8(0xc0 /*nil*/);
@@ -272,7 +272,7 @@ class Serializer {
     }
   }
 
-  bool _writeExt(object) {
+  bool _writeExt(dynamic object) {
     final type = _extEncoder?.extTypeForObject(object);
 
     if (type != null) {

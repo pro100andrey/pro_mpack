@@ -59,7 +59,7 @@ Uint8List serialize(
 /// to `false`.
 ///
 /// Returns the deserialized Dart object, which can be of any supported type.
-Object? deserialize(
+dynamic deserialize(
   Uint8List list, {
   ExtDecoder? extDecoder,
   bool copyBinaryData = false,
