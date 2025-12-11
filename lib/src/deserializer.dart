@@ -1,6 +1,5 @@
 // Mask constants
 
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:pro_binary/pro_binary.dart';
@@ -61,7 +60,7 @@ class Deserializer {
     }
     // Fixstr (0xa0 - 0xbf): string with length up to 31 bytes
     else if ((u & 0xe0) == 0xa0) {
-      return _readString(u & 0x1f);
+      return _reader.readString(u & 0x1f);
     }
     // Fixarray (0x90 - 0x9f): array with length up to 15 elements
     else if ((u & 0xf0) == 0x90) {
@@ -117,13 +116,13 @@ class Deserializer {
         return _reader.readFloat64();
       // str8 (0xd9): string with length up to 255 bytes
       case 0xd9:
-        return _readString(_reader.readUint8());
+        return _reader.readString(_reader.readUint8());
       // str16 (0xda): string with length up to 65535 bytes
       case 0xda:
-        return _readString(_reader.readUint16());
+        return _reader.readString(_reader.readUint16());
       // str32 (0xdb): string with length up to 4294967295 bytes
       case 0xdb:
-        return _readString(_reader.readUint32());
+        return _reader.readString(_reader.readUint32());
       // bin8 (0xc4): binary data with length up to 255 bytes
       case 0xc4:
         return _reader.readBytes(_reader.readUint8());
@@ -181,23 +180,6 @@ class Deserializer {
       default:
         throw Exception('Invalid MessagePack format');
     }
-  }
-
-  String _readString(int length) {
-    // Read the specified number of bytes from the reader
-    final bytes = _reader.readBytes(length);
-    // Check if the byte array contains any non-ASCII characters
-    // ASCII characters have values in the range 0-127
-    // If any byte has a value greater than 127, it means the string contains
-    // non-ASCII characters
-    if (bytes.any((byte) => byte > 127)) {
-      // Decode the byte array using UTF-8 to properly handle non-ASCII
-      // characters
-      return utf8.decode(bytes);
-    }
-
-    // If all characters are ASCII, convert the byte array to a string directly
-    return String.fromCharCodes(bytes);
   }
 
   dynamic _readExt(int length) {

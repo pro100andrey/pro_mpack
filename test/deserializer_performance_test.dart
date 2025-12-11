@@ -28,6 +28,9 @@ class DeserializerBenchmark extends BenchmarkBase {
       final _ = deserialize(bytes);
     }
   }
+
+  @override
+  void exercise() => run();
 }
 
 void main() {

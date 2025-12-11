@@ -20,6 +20,9 @@ class SerializerBenchmark extends BenchmarkBase {
       );
     }
   }
+
+  @override
+  void exercise() => run();
 }
 
 void main() {

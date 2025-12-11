@@ -127,6 +127,7 @@ void main() {
     extDecoder: CustomTypesExtDecoder(),
   );
 
+  // Print deserialized data
   // ignore: avoid_print
   print(deserializedData);
   // Output:
