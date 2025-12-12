@@ -494,7 +494,10 @@ void main() {
       CustomExtension(10, data),
       extEncoder: extEncoder,
     );
-    expect(result.sublist(0, 3), Uint8List.fromList([0xc7 /* ext 8 */, 32, 10]));
+    expect(
+      result.sublist(0, 3),
+      Uint8List.fromList([0xc7 /* ext 8 */, 32, 10]),
+    );
   });
 
   test('serializes ext 16 format correctly', () {
@@ -548,17 +551,19 @@ void main() {
   test('serializes nested array correctly', () {
     final result = serialize([
       [1],
-      2
+      2,
     ]);
     expect(
       result,
-      Uint8List.fromList([0x92 /* fixarray(2) */, 0x91 /* fixarray(1) */, 1, 2]),
+      Uint8List.fromList(
+        [0x92 /* fixarray(2) */, 0x91 /* fixarray(1) */, 1, 2],
+      ),
     );
   });
 
   test('serializes nested map correctly', () {
     final result = serialize({
-      'a': {'b': 1}
+      'a': {'b': 1},
     });
     expect(
       result,
@@ -578,10 +583,10 @@ void main() {
   test('serializes fixstr to str 8 boundary correctly', () {
     final str31 = 'a' * 31; // max fixstr
     final str32 = 'a' * 32; // min str 8
-    
+
     final result31 = serialize(str31);
     expect(result31[0], 0xbf); // fixstr(31)
-    
+
     final result32 = serialize(str32);
     expect(result32[0], 0xd9); // str 8
   });
@@ -589,10 +594,10 @@ void main() {
   test('serializes fixarray to array 16 boundary correctly', () {
     final array15 = List.filled(15, 1); // max fixarray
     final array16 = List.filled(16, 1); // min array 16
-    
+
     final result15 = serialize(array15);
     expect(result15[0], 0x9f); // fixarray(15)
-    
+
     final result16 = serialize(array16);
     expect(result16[0], 0xdc); // array 16
   });
@@ -606,17 +611,17 @@ void main() {
       List.generate(16, (i) => i),
       List.generate(16, (i) => i),
     ); // min map 16
-    
+
     final result15 = serialize(map15);
     expect(result15[0], 0x8f); // fixmap(15)
-    
+
     final result16 = serialize(map16);
     expect(result16[0], 0xde); // map 16
   });
 
   group('Spec Compliance - Timestamp', () {
     test('TS96: Negative timestamp (pre-1970)', () {
-      final date = DateTime.utc(1960, 1, 1);
+      final date = DateTime.utc(1960);
       final encoded = serialize(date);
       // Expect ext 8 (0xc7) + 12 bytes + type -1
       expect(encoded[0], 0xc7);
@@ -731,7 +736,7 @@ void main() {
       expect(serialize(m(15))[0] & 0xf0, 0x80); // fixmap prefix
       expect(serialize(m(16))[0], 0xde); // map16
     });
-    
+
     test('Map boundary: 65535 (map16) vs 65536 (map32)', () {
       expect(serialize(m(65535))[0], 0xde);
       expect(serialize(m(65536))[0], 0xdf);

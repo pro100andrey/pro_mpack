@@ -2,7 +2,6 @@ import 'package:benchmark_harness/benchmark_harness.dart';
 import 'package:pro_mpack/pro_mpack.dart';
 
 import 'utils/data.dart';
-import 'utils/utils.dart';
 
 class SerializerBenchmark extends BenchmarkBase {
   SerializerBenchmark(this.iterations) : super('mpack - serialize');

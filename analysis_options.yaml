@@ -1,6 +1,9 @@
 
 include: package:pro_lints/common.yaml
 
+formatter: 
+  trailing_commas: preserve
+  page_width: 80
 
 linter:
   rules:

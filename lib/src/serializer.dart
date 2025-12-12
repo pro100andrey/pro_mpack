@@ -284,18 +284,18 @@ class Serializer {
     if ((seconds >> 34) == 0) {
       // 32-bit (secs) or 64-bit (30-bit nsec | 34-bit secs)
       final data64 = (nanoseconds << 34) | seconds;
-      
+
       if ((data64 & 0xffffffff00000000) == 0) {
         // Can fit in 32 bits? only if nanoseconds is 0?
         if (nanoseconds == 0 && seconds >= 0 && seconds <= limitUint32) {
-             _writer
-             ..writeUint8(formatFixExt4)
-             ..writeInt8(extTypeTimestamp)
-             ..writeUint32(seconds);
-             return;
+          _writer
+            ..writeUint8(formatFixExt4)
+            ..writeInt8(extTypeTimestamp)
+            ..writeUint32(seconds);
+          return;
         }
       }
-      
+
       // Timestamp 64
       _writer
         ..writeUint8(formatFixExt8)
@@ -319,7 +319,9 @@ class Serializer {
       final encoded = _extEncoder?.encodeObject(object);
 
       if (encoded == null) {
-        throw MessagePackError('Unable to encode object. No Encoder specified.');
+        throw MessagePackError(
+          'Unable to encode object. No Encoder specified.',
+        );
       }
 
       final length = encoded.length;

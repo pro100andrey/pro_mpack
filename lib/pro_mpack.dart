@@ -26,13 +26,13 @@ export 'src/serializer.dart';
 /// types. If not provided, no custom extensions will be encoded.
 /// [initialBufferSize]: The initial size of the buffer used for encoding. This
 /// value is used to optimize the encoding process by reducing the number of
-/// reallocations. Defaults to `64`.
+/// reallocations. Defaults to `1024`.
 ///
 /// Returns a `Uint8List` containing the MessagePack-encoded binary data.
 Uint8List serialize(
   Object? value, {
   ExtEncoder? extEncoder,
-  int initialBufferSize = 64,
+  int initialBufferSize = 1024,
 }) {
   final s =
       Serializer(extEncoder: extEncoder, initialBufferSize: initialBufferSize)

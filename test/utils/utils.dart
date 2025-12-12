@@ -1,8 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:pro_binary/pro_binary.dart';
 import 'package:pro_mpack/pro_mpack.dart';
-
 
 class CustomExtDecoder with ExtDecoder {
   @override
