@@ -7,6 +7,7 @@ import 'src/deserializer.dart';
 import 'src/serializer.dart';
 
 export 'src/deserializer.dart';
+export 'src/error.dart';
 export 'src/serializer.dart';
 
 /// Serializes an object to a MessagePack-encoded `Uint8List`.
@@ -66,7 +67,7 @@ dynamic deserialize(
 }) {
   final d = Deserializer(
     list,
-    extDecoder,
+    extDecoder: extDecoder,
   );
 
   return d.decode();

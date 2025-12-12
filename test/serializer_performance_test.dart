@@ -12,12 +12,7 @@ class SerializerBenchmark extends BenchmarkBase {
   @override
   void run() {
     for (var i = 0; i < iterations; i++) {
-      final _ = serialize(
-        object,
-        extEncoder: CustomTypesExtEncoder(
-          timeStampFormat: TimeStampFormat.ts96,
-        ),
-      );
+      final _ = serialize(object);
     }
   }
 

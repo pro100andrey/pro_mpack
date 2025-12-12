@@ -347,23 +347,17 @@ void main() {
         0xff, 0x00, 0x00, 0x00, 0x01, //
       ], // 1970-01-01 00:00:01 UTC
     );
-    final result = deserialize(
-      buffer,
-      extDecoder: CustomTypesExtDecoder(),
-    );
+    final result = deserialize(buffer);
     expect(result, DateTime.utc(1970, 1, 1, 0, 0, 1));
   });
 
   test('deserializes timestamp 64 format correctly', () {
     final buffer = Uint8List.fromList([
       0xd7 /*fixext 8*/,
-      0xff, 0x00, 0x00, 0x07, 0xd0, 0x00, 0x00, 0x00, 0x01, //
+      0xff, 0x00, 0x00, 0x1f, 0x40, 0x00, 0x00, 0x00, 0x01, //
     ]); // 1970-01-01 00:00:01.000002 UTC
 
-    final result = deserialize(
-      buffer,
-      extDecoder: CustomTypesExtDecoder(),
-    );
+    final result = deserialize(buffer);
     expect(result, DateTime.utc(1970, 1, 1, 0, 0, 1, 0, 2));
   });
 
@@ -373,10 +367,7 @@ void main() {
       12, 0xff, 0x00, 0x00, 0x07, 0xd0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //
       0x00, 0x01,
     ]); // 1970-01-01 00:00:01.000002 UTC
-    final result = deserialize(
-      buffer,
-      extDecoder: CustomTypesExtDecoder(),
-    );
+    final result = deserialize(buffer);
     expect(result, DateTime.utc(1970, 1, 1, 0, 0, 1, 0, 2));
   });
   // Extension format tests (ext 8, ext 16, ext 32)
@@ -466,5 +457,52 @@ void main() {
     expect(result, {
       'a': {'b': 1},
     });
+  });
+
+  // Recursion limit tests
+  test('throws MessagePackError when recursion limit is exceeded (arrays)', () {
+    // Create a deeply nested array
+    // [ [ [ ... ] ] ]
+    // Each level adds 1 byte (0x91 = fixarray(1))
+    final depth = 1000;
+    final buffer = Uint8List(depth + 1);
+    for (var i = 0; i < depth; i++) {
+      buffer[i] = 0x91; // fixarray(1)
+    }
+    buffer[depth] = 0xc0; // nil at the bottom
+
+    // Default limit is 500
+    // We expect it to fail
+    expect(
+      () => deserialize(buffer),
+      throwsA(
+        isA<MessagePackError>().having(
+          (e) => e.message,
+          'message',
+          'Recursion limit exceeded',
+        ),
+      ),
+    );
+  });
+
+  test('successfully deserializes deep structure within limit', () {
+    final depth = 100;
+    final buffer = Uint8List(depth + 1);
+    for (var i = 0; i < depth; i++) {
+      buffer[i] = 0x91; // fixarray(1)
+    }
+    buffer[depth] = 0xc0; // nil
+
+    // Should succeed with default limit (500)
+    final result = deserialize(buffer);
+    
+    // Check structure depth
+    dynamic current = result;
+    for(var i=0; i<depth; i++) {
+        expect(current, isA<List>());
+        expect(current, hasLength(1));
+        current = current[0];
+    }
+    expect(current, isNull);
   });
 }

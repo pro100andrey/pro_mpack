@@ -14,12 +14,7 @@ class DeserializerBenchmark extends BenchmarkBase {
   late final Uint8List bytes;
   @override
   void setup() {
-    bytes = serialize(
-      object,
-      extEncoder: CustomTypesExtEncoder(
-        timeStampFormat: TimeStampFormat.ts96,
-      ),
-    );
+    bytes = serialize(object);
   }
 
   @override

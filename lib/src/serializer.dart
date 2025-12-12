@@ -3,6 +3,9 @@ import 'dart:typed_data';
 
 import 'package:pro_binary/pro_binary.dart';
 
+import 'constants.dart';
+import 'error.dart';
+
 /// A mixin that provides functionality for encoding custom extension types.
 ///
 /// This mixin is intended to be implemented by classes that handle the encoding
@@ -32,7 +35,7 @@ mixin ExtEncoder {
   ///
   /// Returns a `Uint8List` representing the encoded object.
   ///
-  /// Throws an [Exception] if the object cannot be encoded.
+  /// Throws an [MessagePackError] if the object cannot be encoded.
   Uint8List encodeObject(dynamic object);
 }
 
@@ -74,12 +77,12 @@ class Serializer {
   void encode(dynamic value) {
     switch (value) {
       case null:
-        _writer.writeUint8(0xc0 /*nil*/);
+        _writer.writeUint8(formatNil);
       case bool():
-        _writer.writeUint8(value ? 0xc3 /*true*/ : 0xc2 /*false*/);
+        _writer.writeUint8(value ? formatTrue : formatFalse);
       case int() when value < 0:
         _writeNegativeInt(value);
-      case int() when value >= 0:
+      case int():
         _writePositiveInt(value);
       case Float():
         _writeFloat(value);
@@ -100,10 +103,12 @@ class Serializer {
         );
       case Map():
         _writeMap(value);
+      case DateTime():
+        _writeTimestamp(value);
       case _ when _extEncoder != null && _writeExt(value):
-        ;
+        return;
       case _:
-        throw Exception("Don't know how to serialize $value");
+        throw MessagePackError("Don't know how to serialize $value");
     }
   }
 
@@ -113,59 +118,59 @@ class Serializer {
 
   void _writeNegativeInt(int value) {
     switch (value) {
-      case >= -32:
-        _writer.writeInt8(value /*negative fixint*/);
-      case >= -128:
+      case >= limitNegativeInt5:
+        _writer.writeInt8(value); // negative fixint
+      case >= limitNegativeInt8:
         _writer
-          ..writeUint8(0xd0 /*int 8*/)
+          ..writeUint8(formatInt8)
           ..writeInt8(value);
-      case >= -32768:
+      case >= limitNegativeInt16:
         _writer
-          ..writeUint8(0xd1 /*int 16*/)
+          ..writeUint8(formatInt16)
           ..writeInt16(value);
-      case >= -2147483648:
+      case >= limitNegativeInt32:
         _writer
-          ..writeUint8(0xd2 /*int 32*/)
+          ..writeUint8(formatInt32)
           ..writeInt32(value);
-      case _:
+      default:
         _writer
-          ..writeUint8(0xd3 /*int 64*/)
+          ..writeUint8(formatInt64)
           ..writeInt64(value);
     }
   }
 
   void _writePositiveInt(int value) {
     switch (value) {
-      case <= 127:
-        _writer.writeUint8(value); //positive fixint
-      case <= 255:
+      case <= limitInt8:
+        _writer.writeUint8(value); // positive fixint
+      case <= limitUint8:
         _writer
-          ..writeUint8(0xcc /*uint 8*/)
+          ..writeUint8(formatUint8)
           ..writeUint8(value);
-      case <= 65535:
+      case <= limitUint16:
         _writer
-          ..writeUint8(0xcd /*uint 16*/)
+          ..writeUint8(formatUint16)
           ..writeUint16(value);
-      case <= 4294967295:
+      case <= limitUint32:
         _writer
-          ..writeUint8(0xce /*uint 32*/)
+          ..writeUint8(formatUint32)
           ..writeUint32(value);
-      case _:
+      default:
         _writer
-          ..writeUint8(0xcf /*uint 64*/)
+          ..writeUint8(formatUint64)
           ..writeUint64(value);
     }
   }
 
   void _writeFloat(Float value) {
     _writer
-      ..writeUint8(0xca /*float 32*/)
+      ..writeUint8(formatFloat32)
       ..writeFloat32(value.value);
   }
 
   void _writeDouble(double value) {
     _writer
-      ..writeUint8(0xcb /*float 64*/)
+      ..writeUint8(formatFloat64)
       ..writeFloat64(value);
   }
 
@@ -175,21 +180,21 @@ class Serializer {
 
     switch (length) {
       case <= 31:
-        _writer.writeUint8(0xa0 /*fixstr*/ | length);
-      case <= 255:
+        _writer.writeUint8(formatFixStrPrefix | length);
+      case <= limitUint8:
         _writer
-          ..writeUint8(0xd9 /*str 8*/)
+          ..writeUint8(formatStr8)
           ..writeUint8(length);
-      case <= 65535:
+      case <= limitUint16:
         _writer
-          ..writeUint8(0xda /*str 16*/)
+          ..writeUint8(formatStr16)
           ..writeUint16(length);
-      case <= 4294967295:
+      case <= limitUint32:
         _writer
-          ..writeUint8(0xdb /*str 32*/)
+          ..writeUint8(formatStr32)
           ..writeUint32(length);
-      case _:
-        throw Exception(
+      default:
+        throw MessagePackError(
           'String is too long to be serialized with messagePack.',
         );
     }
@@ -201,21 +206,20 @@ class Serializer {
     final length = buffer.length;
 
     switch (length) {
-      case <= 0xff:
+      case <= limitUint8:
         _writer
-          ..writeUint8(0xc4 /*bin 8*/)
+          ..writeUint8(formatBin8)
           ..writeUint8(length);
-
-      case <= 65535:
+      case <= limitUint16:
         _writer
-          ..writeUint8(0xc5 /*bin 16*/)
+          ..writeUint8(formatBin16)
           ..writeUint16(length);
-      case <= 4294967295:
+      case <= limitUint32:
         _writer
-          ..writeUint8(0xc6 /*bin 32*/)
+          ..writeUint8(formatBin32)
           ..writeUint32(length);
-      case _:
-        throw Exception(
+      default:
+        throw MessagePackError(
           'Data is too long to be serialized with messagePack.',
         );
     }
@@ -228,17 +232,17 @@ class Serializer {
 
     switch (length) {
       case <= 15:
-        _writer.writeUint8(0x90 /*fixarray*/ | length);
-      case <= 65535:
+        _writer.writeUint8(formatFixArrayPrefix | length);
+      case <= limitUint16:
         _writer
-          ..writeUint8(0xdc /*array 16*/)
+          ..writeUint8(formatArray16)
           ..writeUint16(length);
-      case <= 4294967295:
+      case <= limitUint32:
         _writer
-          ..writeUint8(0xdd /*array 32*/)
+          ..writeUint8(formatArray32)
           ..writeUint32(length);
-      case _:
-        throw Exception(
+      default:
+        throw MessagePackError(
           'Array is too big to be serialized with messagePack',
         );
     }
@@ -251,17 +255,17 @@ class Serializer {
 
     switch (length) {
       case <= 15:
-        _writer.writeUint8(0x80 /*fixmap*/ | length);
-      case <= 65535:
+        _writer.writeUint8(formatFixMapPrefix | length);
+      case <= limitUint16:
         _writer
-          ..writeUint8(0xde /*map 16*/)
+          ..writeUint8(formatMap16)
           ..writeUint16(length);
-      case <= 4294967295:
+      case <= limitUint32:
         _writer
-          ..writeUint8(0xdf /*map 32*/)
+          ..writeUint8(formatMap32)
           ..writeUint32(length);
-      case _:
-        throw Exception(
+      default:
+        throw MessagePackError(
           'Map is too big to be serialized with messagePack',
         );
     }
@@ -272,6 +276,42 @@ class Serializer {
     }
   }
 
+  void _writeTimestamp(DateTime value) {
+    final utc = value.toUtc();
+    final seconds = utc.millisecondsSinceEpoch ~/ 1000;
+    final nanoseconds = (utc.microsecondsSinceEpoch % 1000000) * 1000;
+
+    if ((seconds >> 34) == 0) {
+      // 32-bit (secs) or 64-bit (30-bit nsec | 34-bit secs)
+      final data64 = (nanoseconds << 34) | seconds;
+      
+      if ((data64 & 0xffffffff00000000) == 0) {
+        // Can fit in 32 bits? only if nanoseconds is 0?
+        if (nanoseconds == 0 && seconds >= 0 && seconds <= limitUint32) {
+             _writer
+             ..writeUint8(formatFixExt4)
+             ..writeInt8(extTypeTimestamp)
+             ..writeUint32(seconds);
+             return;
+        }
+      }
+      
+      // Timestamp 64
+      _writer
+        ..writeUint8(formatFixExt8)
+        ..writeInt8(extTypeTimestamp)
+        ..writeUint64(data64);
+    } else {
+      // Timestamp 96
+      _writer
+        ..writeUint8(formatExt8)
+        ..writeUint8(12) // length
+        ..writeInt8(extTypeTimestamp)
+        ..writeUint32(nanoseconds)
+        ..writeInt64(seconds);
+    }
+  }
+
   bool _writeExt(dynamic object) {
     final type = _extEncoder?.extTypeForObject(object);
 
@@ -279,40 +319,40 @@ class Serializer {
       final encoded = _extEncoder?.encodeObject(object);
 
       if (encoded == null) {
-        throw Exception('Unable to encode object. No Encoder specified.');
+        throw MessagePackError('Unable to encode object. No Encoder specified.');
       }
 
       final length = encoded.length;
 
       switch (length) {
         case 1:
-          _writer.writeUint8(0xd4);
+          _writer.writeUint8(formatFixExt1);
         case 2:
-          _writer.writeUint8(0xd5);
+          _writer.writeUint8(formatFixExt2);
         case 4:
-          _writer.writeUint8(0xd6);
+          _writer.writeUint8(formatFixExt4);
         case 8:
-          _writer.writeUint8(0xd7);
+          _writer.writeUint8(formatFixExt8);
         case 16:
-          _writer.writeUint8(0xd8);
-        case <= 0xff:
+          _writer.writeUint8(formatFixExt16);
+        case <= limitUint8:
           _writer
-            ..writeUint8(0xc7) // ext8
+            ..writeUint8(formatExt8) // ext8
             ..writeUint8(length);
-        case <= 0xFFFF:
+        case <= limitUint16:
           _writer
-            ..writeUint8(0xc8) // ext16
+            ..writeUint8(formatExt16) // ext16
             ..writeUint16(length);
-        case <= 0xFFFFFFFF:
+        case <= limitUint32:
           _writer
-            ..writeUint8(0xc9) // ext32
+            ..writeUint8(formatExt32) // ext32
             ..writeUint32(length);
         case _:
-          throw Exception('Size must be at most 0xFFFFFFFF');
+          throw MessagePackError('Size must be at most $limitUint32');
       }
 
       if (type < -128 || type > 127) {
-        throw Exception('Type must be in the range of -128 to 127');
+        throw MessagePackError('Type must be in the range of -128 to 127');
       }
 
       _writer
