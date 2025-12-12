@@ -1,6 +1,20 @@
-/// MessagePack format constants.
+/// MessagePack format constants and definitions.
 ///
-/// See https://github.com/msgpack/msgpack/blob/master/spec.md#formats-overview
+/// This library defines all the format type codes and value limits
+/// specified in the MessagePack specification. These constants are used
+/// internally by the serializer and deserializer to identify and encode
+/// different data types.
+///
+/// The MessagePack format uses a type-byte prefix to identify the type
+/// and often the length of the data that follows. For example:
+/// - 0x00-0x7f: positive fixint (single-byte positive integers)
+/// - 0xe0-0xff: negative fixint (single-byte negative integers)
+/// - 0xa0-0xbf: fixstr (short strings with length in lower 5 bits)
+/// - 0x90-0x9f: fixarray (short arrays with length in lower 4 bits)
+/// - 0x80-0x8f: fixmap (short maps with length in lower 4 bits)
+///
+/// For detailed format specifications, see:
+/// https://github.com/msgpack/msgpack/blob/master/spec.md#formats-overview
 library;
 
 // Nil format

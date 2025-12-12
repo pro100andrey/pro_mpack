@@ -23,7 +23,7 @@ mixin ExtEncoder {
   ///
   /// Returns an integer representing the extension type, or `null` if the
   /// object cannot be encoded.
-  int? extTypeForObject(dynamic object);
+  int? extTypeForObject(Object? object);
 
   /// Encodes a given [object] into a Uint8List.
   ///
@@ -36,11 +36,25 @@ mixin ExtEncoder {
   /// Returns a `Uint8List` representing the encoded object.
   ///
   /// Throws an [MessagePackError] if the object cannot be encoded.
-  Uint8List encodeObject(dynamic object);
+  Uint8List encodeObject(Object? object);
 }
 
-/// A class representing a custom floating-point number.
+/// A class representing a 32-bit floating-point number.
+///
+/// By default, Dart's `double` type is serialized as a 64-bit float
+/// (float64) in MessagePack. Use [Float] to explicitly serialize a value
+/// as a 32-bit float (float32), which can save space when full 64-bit
+/// precision is not needed.
+///
+/// Example:
+/// ```dart
+/// final data = serialize({
+///   'precise': 3.14159265359, // Serialized as float64
+///   'compact': Float(3.14),   // Serialized as float32
+/// });
+/// ```
 class Float {
+  /// Creates a [Float] with the specified [value].
   Float(this.value);
 
   final double value;
@@ -51,18 +65,48 @@ class Float {
 
 /// A class responsible for serializing various data types into MessagePack
 /// format.
+///
+/// The [Serializer] class provides a low-level interface for encoding Dart
+/// objects into the MessagePack binary format. It maintains an internal
+/// buffer that grows as needed during serialization.
+///
+/// ## Supported Types
+///
+/// - Primitives: `null`, `bool`, `int`, `double`
+/// - Collections: `List`, `Map`, `Iterable`
+/// - Binary data: `Uint8List`, `ByteData`
+/// - Text: `String` (UTF-8 encoded)
+/// - Special: `DateTime` (as timestamp extension), [Float] (32-bit float)
+/// - Custom extension types via [ExtEncoder]
+///
+/// ## Usage
+///
+/// For most use cases, prefer the high-level `serialize()` function. Use
+/// [Serializer] directly when you need more control or are encoding
+/// multiple values:
+///
+/// ```dart
+/// final serializer = Serializer();
+/// serializer.encode(123);
+/// serializer.encode('hello');
+/// final bytes = serializer.takeBytes();
+/// ```
 class Serializer {
-  /// Creates a Serializer with an optional [extEncoder].
+  /// Creates a [Serializer] with an optional [extEncoder] and
+  /// [initialBufferSize].
   ///
-  /// The [extEncoder] parameter is used for encoding custom extension types.
-  /// If provided, the serializer will use the encoder to serialize custom
-  /// extension types. Otherwise, custom extensions will not be encoded.
-  /// The [initialBufferSize] parameter specifies the initial size of the buffer
-  /// used for encoding. This value is used to optimize the encoding process by
-  /// reducing the number of reallocations. The default value is `64`.
+  /// [extEncoder]: Optional encoder for custom extension types. When
+  /// provided, objects that match custom types will be encoded using this
+  /// encoder.
+  ///
+  /// [initialBufferSize]: The initial capacity of the internal buffer in
+  /// bytes. The buffer will grow automatically as needed, but setting an
+  /// appropriate initial size can improve performance by reducing
+  /// allocations. Default is `1024`. Consider using larger values (e.g.,
+  /// 8192 or 16384) when encoding large objects.
   Serializer({
     ExtEncoder? extEncoder,
-    int initialBufferSize = 64,
+    int initialBufferSize = 1024,
   }) : _extEncoder = extEncoder {
     _writer = BinaryWriter(initialBufferSize: initialBufferSize);
   }
@@ -72,9 +116,25 @@ class Serializer {
 
   /// Encodes a given [value] into MessagePack format.
   ///
-  /// The [value] can be of various types such as int, double, String, List,
-  /// Map, or null.
-  void encode(dynamic value) {
+  /// This method determines the appropriate MessagePack encoding based on
+  /// the runtime type of [value] and writes it to the internal buffer.
+  ///
+  /// [value]: The object to encode. Can be:
+  /// - `null` → nil format (0xc0)
+  /// - `bool` → true (0xc3) or false (0xc2)
+  /// - `int` → fixint, or int8/16/32/64 based on value range
+  /// - [Float] → float32
+  /// - `double` → float64
+  /// - `String` → fixstr, str8/16/32 based on length
+  /// - `Uint8List` or `ByteData` → bin8/16/32
+  /// - `Iterable` → fixarray or array16/32
+  /// - `Map` → fixmap or map16/32
+  /// - `DateTime` → timestamp extension (-1)
+  /// - Custom types via [ExtEncoder]
+  ///
+  /// Throws [MessagePackError] if the value cannot be serialized or if
+  /// it's too large for the MessagePack format limits.
+  void encode(Object? value) {
     switch (value) {
       case null:
         _writer.writeUint8(formatNil);
@@ -112,10 +172,28 @@ class Serializer {
     }
   }
 
-  /// Returns the serialized bytes as a Uint8List.
-  /// After calling this method, the serializer is reset and can be used again.
+  /// Returns the serialized bytes as a [Uint8List] and resets the internal
+  /// buffer.
+  ///
+  /// This method extracts all encoded data from the internal buffer and
+  /// returns it as a [Uint8List]. After calling this method, the
+  /// serializer's buffer is cleared and ready for reuse.
+  ///
+  /// Example:
+  /// ```dart
+  /// final serializer = Serializer();
+  /// serializer.encode({'a': 1});
+  /// final bytes1 = serializer.takeBytes();
+  ///
+  /// serializer.encode({'b': 2}); // Reuse the serializer
+  /// final bytes2 = serializer.takeBytes();
+  /// ```
+  ///
+  /// Returns a [Uint8List] containing all MessagePack-encoded data.
   Uint8List takeBytes() => _writer.takeBytes();
 
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
   void _writeNegativeInt(int value) {
     switch (value) {
       case >= limitNegativeInt5:
@@ -139,6 +217,8 @@ class Serializer {
     }
   }
 
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
   void _writePositiveInt(int value) {
     switch (value) {
       case <= limitInt8:
@@ -162,18 +242,24 @@ class Serializer {
     }
   }
 
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
   void _writeFloat(Float value) {
     _writer
       ..writeUint8(formatFloat32)
       ..writeFloat32(value.value);
   }
 
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
   void _writeDouble(double value) {
     _writer
       ..writeUint8(formatFloat64)
       ..writeFloat64(value);
   }
 
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
   void _writeString(String value) {
     final encoded = const Utf8Encoder().convert(value);
     final length = encoded.length;
@@ -202,6 +288,8 @@ class Serializer {
     _writer.writeBytes(encoded);
   }
 
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
   void _writeBinary(Uint8List buffer) {
     final length = buffer.length;
 
@@ -227,6 +315,8 @@ class Serializer {
     _writer.writeBytes(buffer);
   }
 
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
   void _writeIterable(Iterable iterable) {
     final length = iterable.length;
 
@@ -247,9 +337,22 @@ class Serializer {
         );
     }
 
-    iterable.forEach(encode);
+    // Optimize for List to avoid iterator overhead
+    if (iterable is List) {
+      for (var i = 0; i < length; i++) {
+        encode(iterable[i]);
+      }
+    } else {
+      // no allocate lambda for each item
+      // ignore: prefer_foreach
+      for (final item in iterable) {
+        encode(item);
+      }
+    }
   }
 
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
   void _writeMap(Map dictionary) {
     final length = dictionary.length;
 
@@ -270,14 +373,16 @@ class Serializer {
         );
     }
 
-    for (final item in dictionary.entries) {
-      encode(item.key);
-      encode(item.value);
-    }
+    dictionary.forEach((key, value) {
+      encode(key);
+      encode(value);
+    });
   }
 
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
   void _writeTimestamp(DateTime value) {
-    final utc = value.toUtc();
+    final utc = value.isUtc ? value : value.toUtc();
     final seconds = utc.millisecondsSinceEpoch ~/ 1000;
     final nanoseconds = (utc.microsecondsSinceEpoch % 1000000) * 1000;
 
@@ -312,7 +417,9 @@ class Serializer {
     }
   }
 
-  bool _writeExt(dynamic object) {
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
+  bool _writeExt(Object? object) {
     final type = _extEncoder?.extTypeForObject(object);
 
     if (type != null) {

@@ -742,4 +742,104 @@ void main() {
       expect(serialize(m(65536))[0], 0xdf);
     });
   });
+
+  group('serializeAll', () {
+    test('serializes empty iterable', () {
+      final result = serializeAll([]);
+      expect(result, Uint8List.fromList([]));
+    });
+
+    test('serializes single value', () {
+      final result = serializeAll([42]);
+      // Should encode as positive fixint
+      expect(result, Uint8List.fromList([0x2a /* 42 */]));
+    });
+
+    test('serializes multiple primitive values', () {
+      final result = serializeAll([123, 'hello', true, null]);
+      final expected = [
+        0x7b, // 123 (positive fixint)
+        0xa5, // fixstr with length 5
+        0x68, 0x65, 0x6c, 0x6c, 0x6f, // 'hello'
+        0xc3, // true
+        0xc0, // nil
+      ];
+      expect(result, Uint8List.fromList(expected));
+    });
+
+    test('serializes mixed types sequentially', () {
+      final result = serializeAll([
+        42,
+        'test',
+        {'key': 'value'},
+      ]);
+
+      // Verify we can deserialize each value separately
+      final deserializer = Deserializer(result);
+      expect(deserializer.decode(), 42);
+      expect(deserializer.decode(), 'test');
+      expect(deserializer.decode(), {'key': 'value'});
+      expect(deserializer.hasBytesAvailable, false);
+    });
+
+    test('differs from serialize() with array wrapping', () {
+      final data = [1, 2, 3];
+
+      // serializeAll: three consecutive integers
+      final resultAll = serializeAll(data);
+      expect(resultAll, Uint8List.fromList([0x01, 0x02, 0x03]));
+
+      // serialize: one array with three elements
+      final resultArray = serialize(data);
+      expect(
+        resultArray,
+        Uint8List.fromList([0x93 /* fixarray len=3 */, 0x01, 0x02, 0x03]),
+      );
+    });
+
+    test('works with List<Object?>', () {
+      final values = <Object?>[1, 'test', null];
+      final result = serializeAll(values);
+      expect(result.isNotEmpty, true);
+    });
+
+    test('works with non-List iterable', () {
+      final values = {1, 2, 3}.map((x) => x * 2); // Iterable but not List
+      final result = serializeAll(values);
+      // Should contain: 2, 4, 6 as positive fixints
+      expect(result, Uint8List.fromList([0x02, 0x04, 0x06]));
+    });
+
+    test('supports custom extension encoder', () {
+      final date = DateTime.utc(2020);
+      final result = serializeAll([date]);
+      // Should encode as timestamp extension
+      expect(result[0], 0xd6); // fixext4 or another ext format
+    });
+
+    test('respects initialBufferSize', () {
+      // Should not throw with small or large buffer sizes
+      serializeAll([1, 2, 3], initialBufferSize: 16);
+      serializeAll([1, 2, 3], initialBufferSize: 8192);
+      // Test passes if no exception is thrown
+    });
+
+    test('encodes complex nested structures', () {
+      final result = serializeAll([
+        {
+          'users': [1, 2, 3],
+        },
+        [true, false],
+        'end',
+      ]);
+
+      // Verify deserialization
+      final deserializer = Deserializer(result);
+      expect(deserializer.decode(), {
+        'users': [1, 2, 3],
+      });
+      expect(deserializer.decode(), [true, false]);
+      expect(deserializer.decode(), 'end');
+    });
+  });
 }

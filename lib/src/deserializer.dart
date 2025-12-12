@@ -25,16 +25,40 @@ mixin ExtDecoder {
   /// Returns the decoded object, or `null` if the object could not be decoded.
   ///
   /// Throws an [UnimplementedError] if the extension type is not recognized.
-  dynamic decodeObject(int extType, Uint8List data);
+  Object? decodeObject(int extType, Uint8List data);
 }
 
 /// A class responsible for deserializing MessagePack-encoded data.
+///
+/// The [Deserializer] class provides a low-level interface for decoding
+/// MessagePack binary data into Dart objects. It maintains an internal
+/// reader that tracks the current position in the buffer.
+///
+/// ## Usage
+///
+/// For most use cases, prefer the high-level `deserialize()` function. Use
+/// [Deserializer] directly when you need to decode multiple values from a
+/// single buffer:
+///
+/// ```dart
+/// final deserializer = Deserializer(bytes);
+/// while (deserializer.hasBytesAvailable) {
+///   final value = deserializer.decode();
+///   print(value);
+/// }
+/// ```
+///
+/// The deserializer automatically handles all MessagePack types and formats,
+/// including nested structures and extension types.
 class Deserializer {
-  /// Creates a Deserializer with a given [buffer] and an optional [extDecoder].
+  /// Creates a [Deserializer] with a given [buffer] and an optional
+  /// [extDecoder].
   ///
-  /// The [buffer] parameter is the binary data to be deserialized.
-  /// The [extDecoder] parameter is a function that can decode custom extension
-  /// types in the MessagePack format.
+  /// [buffer]: The MessagePack-encoded binary data to deserialize.
+  ///
+  /// [extDecoder]: Optional decoder for custom extension types. When
+  /// provided, extension types (other than the built-in timestamp type -1)
+  /// will be decoded using this decoder.
   Deserializer(
     Uint8List buffer, {
     ExtDecoder? extDecoder,
@@ -44,14 +68,49 @@ class Deserializer {
   final BinaryReader _reader;
   final ExtDecoder? _extDecoder;
 
+  /// Returns `true` if there are unread bytes remaining in the buffer.
+  ///
+  /// This property is useful when deserializing multiple consecutive values
+  /// from a single buffer:
+  ///
+  /// ```dart
+  /// final deserializer = Deserializer(buffer);
+  /// while (deserializer.hasBytesAvailable) {
+  ///   final value = deserializer.decode();
+  ///   processValue(value);
+  /// }
+  /// ```
+  bool get hasBytesAvailable => _reader.availableBytes > 0;
+
   /// Decodes the next value from the buffer.
   ///
-  /// Returns an Object representing the deserialized value, which could be
-  /// of various types such as int, String, List, Map, or null.
+  /// This method reads the next MessagePack value from the current position
+  /// in the buffer and advances the position. The type of the returned value
+  /// depends on the MessagePack format:
   ///
-  /// Throws a [MessagePackError] if the buffer contains invalid MessagePack
-  /// format.
-  dynamic decode() {
+  /// - nil (0xc0) → `null`
+  /// - bool (0xc2, 0xc3) → `bool`
+  /// - fixint, int8/16/32/64 → `int`
+  /// - float32/64 → `double`
+  /// - fixstr, str8/16/32 → `String`
+  /// - bin8/16/32 → `Uint8List`
+  /// - fixarray, array16/32 → `List<Object?>`
+  /// - fixmap, map16/32 → `Map<Object?, Object?>`
+  /// - timestamp ext (-1) → `DateTime`
+  /// - other extensions → decoded via [ExtDecoder] if provided
+  ///
+  /// Example:
+  /// ```dart
+  /// final deserializer = Deserializer(buffer);
+  /// final value = deserializer.decode();
+  /// ```
+  ///
+  /// Returns the deserialized object, which may be `null`, a primitive
+  /// type, a collection, or a custom type from an extension decoder.
+  ///
+  /// Throws [MessagePackError] if the buffer contains invalid MessagePack
+  /// format or if there are insufficient bytes to read.
+  Object? decode() {
     final u = _reader.readUint8();
 
     // Formats
@@ -70,25 +129,11 @@ class Deserializer {
 
       // Fixarray (0x90 - 0x9f): array with length up to 15 elements
       case >= formatFixArrayPrefix && <= 0x9f:
-        final length = u & 0x0f;
-
-        final list = List<dynamic>.filled(length, null);
-        for (var i = 0; i < length; i++) {
-          list[i] = decode();
-        }
-        return list;
+        return _decodeArray(u & 0x0f);
 
       // Fixmap (0x80 - 0x8f): map with length up to 15 key-value pairs
       case >= formatFixMapPrefix && <= 0x8f:
-        final map = {};
-
-        for (var i = 0; i < u & 0x0f; i++) {
-          final key = decode();
-          final value = decode();
-          map[key] = value;
-        }
-
-        return map;
+        return _decodeMap(u & 0x0f);
       // Nil (0xc0): null value
       case formatNil:
         return null;
@@ -148,46 +193,16 @@ class Deserializer {
         return _reader.readBytes(_reader.readUint32());
       // array16 (0xdc): array with length up to 65535 elements
       case formatArray16:
-        final length = _reader.readUint16();
-
-        final list = List<dynamic>.filled(length, null);
-        for (var i = 0; i < length; i++) {
-          list[i] = decode();
-        }
-        return list;
+        return _decodeArray(_reader.readUint16());
       // array32 (0xdd): array with length up to 4294967295 elements
       case formatArray32:
-        final length = _reader.readUint32();
-
-        final list = List<dynamic>.filled(length, null);
-        for (var i = 0; i < length; i++) {
-          list[i] = decode();
-        }
-        return list;
+        return _decodeArray(_reader.readUint32());
       // map16 (0xde): map with length up to 65535 key-value pairs
       case formatMap16:
-        final length = _reader.readUint16();
-        final map = {};
-
-        for (var i = 0; i < length; i++) {
-          final key = decode();
-          final value = decode();
-          map[key] = value;
-        }
-
-        return map;
+        return _decodeMap(_reader.readUint16());
       // map32 (0xdf): map with length up to 4294967295 key-value pairs
       case formatMap32:
-        final length = _reader.readUint32();
-        final map = {};
-
-        for (var i = 0; i < length; i++) {
-          final key = decode();
-          final value = decode();
-          map[key] = value;
-        }
-
-        return map;
+        return _decodeMap(_reader.readUint32());
       // fixext1 (0xd4): extension with 1 byte of data
       case formatFixExt1:
         return _readExt(1);
@@ -218,7 +233,33 @@ class Deserializer {
     }
   }
 
-  dynamic _readExt(int length) {
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
+  Map<Object?, Object?> _decodeMap(int length) {
+    final map = {};
+
+    for (var i = 0; i < length; i++) {
+      final key = decode();
+      final value = decode();
+      map[key] = value;
+    }
+
+    return map;
+  }
+
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
+  List<Object?> _decodeArray(int length) {
+    final list = List<Object?>.filled(length, null);
+    for (var i = 0; i < length; i++) {
+      list[i] = decode();
+    }
+    return list;
+  }
+
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
+  Object? _readExt(int length) {
     final extType = _reader.readInt8();
     final data = _reader.readBytes(length);
 
@@ -229,6 +270,8 @@ class Deserializer {
     return _extDecoder?.decodeObject(extType, data);
   }
 
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
   DateTime _decodeTimestamp(Uint8List data) {
     switch (data.length) {
       case 4:
