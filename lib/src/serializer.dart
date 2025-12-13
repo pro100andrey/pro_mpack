@@ -137,35 +137,33 @@ class Serializer {
   void encode(Object? value) {
     switch (value) {
       case null:
-        _writer.writeUint8(formatNil);
+        writeNull();
       case bool():
-        _writer.writeUint8(value ? formatTrue : formatFalse);
-      case int() when value < 0:
-        _writeNegativeInt(value);
+        writeBool(value);
       case int():
-        _writePositiveInt(value);
+        writeInt(value);
       case Float():
-        _writeFloat(value);
+        writeFloat(value);
       case double():
-        _writeDouble(value);
+        writeDouble(value);
       case String():
-        _writeString(value);
+        writeString(value);
       case Uint8List():
-        _writeBinary(value);
+        writeBinary(value);
       case Iterable():
-        _writeIterable(value);
+        writeIterable(value);
       case ByteData():
-        _writeBinary(
+        writeBinary(
           value.buffer.asUint8List(
             value.offsetInBytes,
             value.lengthInBytes,
           ),
         );
       case Map():
-        _writeMap(value);
+        writeMap(value);
       case DateTime():
-        _writeTimestamp(value);
-      case _ when _extEncoder != null && _writeExt(value):
+        writeTimestamp(value);
+      case _ when _extEncoder != null && writeExt(value):
         return;
       case _:
         throw MessagePackError("Don't know how to serialize $value");
@@ -194,7 +192,31 @@ class Serializer {
 
   @pragma('vm:prefer-inline')
   @pragma('dart2js:tryInline')
-  void _writeNegativeInt(int value) {
+  //
+  // ignore: avoid_positional_boolean_parameters
+  void writeBool(bool value) {
+    _writer.writeUint8(value ? formatTrue : formatFalse);
+  }
+
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
+  void writeNull() {
+    _writer.writeUint8(formatNil);
+  }
+
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
+  void writeInt(int value) {
+    if (value >= 0) {
+      writePositiveInt(value);
+    } else {
+      writeNegativeInt(value);
+    }
+  }
+
+  @pragma('vm:prefer-inline')
+  @pragma('dart2js:tryInline')
+  void writeNegativeInt(int value) {
     switch (value) {
       case >= limitNegativeInt5:
         _writer.writeInt8(value); // negative fixint
@@ -219,7 +241,7 @@ class Serializer {
 
   @pragma('vm:prefer-inline')
   @pragma('dart2js:tryInline')
-  void _writePositiveInt(int value) {
+  void writePositiveInt(int value) {
     switch (value) {
       case <= limitInt8:
         _writer.writeUint8(value); // positive fixint
@@ -244,7 +266,7 @@ class Serializer {
 
   @pragma('vm:prefer-inline')
   @pragma('dart2js:tryInline')
-  void _writeFloat(Float value) {
+  void writeFloat(Float value) {
     _writer
       ..writeUint8(formatFloat32)
       ..writeFloat32(value.value);
@@ -252,7 +274,7 @@ class Serializer {
 
   @pragma('vm:prefer-inline')
   @pragma('dart2js:tryInline')
-  void _writeDouble(double value) {
+  void writeDouble(double value) {
     _writer
       ..writeUint8(formatFloat64)
       ..writeFloat64(value);
@@ -260,7 +282,7 @@ class Serializer {
 
   @pragma('vm:prefer-inline')
   @pragma('dart2js:tryInline')
-  void _writeString(String value) {
+  void writeString(String value) {
     final encoded = const Utf8Encoder().convert(value);
     final length = encoded.length;
 
@@ -290,7 +312,7 @@ class Serializer {
 
   @pragma('vm:prefer-inline')
   @pragma('dart2js:tryInline')
-  void _writeBinary(Uint8List buffer) {
+  void writeBinary(Uint8List buffer) {
     final length = buffer.length;
 
     switch (length) {
@@ -317,7 +339,7 @@ class Serializer {
 
   @pragma('vm:prefer-inline')
   @pragma('dart2js:tryInline')
-  void _writeIterable(Iterable iterable) {
+  void writeIterable(Iterable iterable) {
     final length = iterable.length;
 
     switch (length) {
@@ -353,7 +375,7 @@ class Serializer {
 
   @pragma('vm:prefer-inline')
   @pragma('dart2js:tryInline')
-  void _writeMap(Map dictionary) {
+  void writeMap(Map dictionary) {
     final length = dictionary.length;
 
     switch (length) {
@@ -381,45 +403,46 @@ class Serializer {
 
   @pragma('vm:prefer-inline')
   @pragma('dart2js:tryInline')
-  void _writeTimestamp(DateTime value) {
-    final utc = value.isUtc ? value : value.toUtc();
-    final seconds = utc.millisecondsSinceEpoch ~/ 1000;
-    final nanoseconds = (utc.microsecondsSinceEpoch % 1000000) * 1000;
+  void writeTimestamp(DateTime value) {
+    final micro = (value.isUtc ? value : value.toUtc()).microsecondsSinceEpoch;
+    final sec = (micro / 1000000).floor();
+    final nano = ((micro % 1000000 + 1000000) % 1000000) * 1000;
 
-    if ((seconds >> 34) == 0) {
+    if ((sec >> 34) == 0) {
       // 32-bit (secs) or 64-bit (30-bit nsec | 34-bit secs)
-      final data64 = (nanoseconds << 34) | seconds;
+      final data64 = (nano << 34) | sec;
 
-      if ((data64 & 0xffffffff00000000) == 0) {
-        // Can fit in 32 bits? only if nanoseconds is 0?
-        if (nanoseconds == 0 && seconds >= 0 && seconds <= limitUint32) {
-          _writer
-            ..writeUint8(formatFixExt4)
-            ..writeInt8(extTypeTimestamp)
-            ..writeUint32(seconds);
-          return;
-        }
+      // Timestamp 32
+      // 1970 ... 2106 and no nanoseconds
+      if (nano == 0 && sec >= 0 && sec <= limitUint32) {
+        _writer
+          ..writeUint8(formatFixExt4)
+          ..writeInt8(extTypeTimestamp)
+          ..writeUint32(sec);
+        return;
       }
 
       // Timestamp 64
+      // 1970 ... ~2514 with nanoseconds
       _writer
         ..writeUint8(formatFixExt8)
         ..writeInt8(extTypeTimestamp)
-        ..writeUint64(data64);
+        ..writeInt64(data64);
     } else {
       // Timestamp 96
+      // Before 1970 or after ~2514
       _writer
         ..writeUint8(formatExt8)
         ..writeUint8(12) // length
         ..writeInt8(extTypeTimestamp)
-        ..writeUint32(nanoseconds)
-        ..writeInt64(seconds);
+        ..writeUint32(nano)
+        ..writeInt64(sec);
     }
   }
 
   @pragma('vm:prefer-inline')
   @pragma('dart2js:tryInline')
-  bool _writeExt(Object? object) {
+  bool writeExt(Object? object) {
     final type = _extEncoder?.extTypeForObject(object);
 
     if (type != null) {

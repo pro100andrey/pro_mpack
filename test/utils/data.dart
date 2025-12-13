@@ -7,8 +7,8 @@ final object = {
   'age': 30,
   'nil': null,
   'email': 'this.andrey@gmail.com',
-  'start': DateTime(1985, 1, 1, 12, 23, 34),
-  'end': DateTime(1988, 1, 1, 12, 23, 34),
+  'start': DateTime(100, 1, 1, 12, 23, 34, 567, 890),
+  'end': DateTime(3000, 1, 1, 12, 23, 34, 567, 890),
   'data': Uint8List.fromList(List.generate(100, (index) => index)),
   'addresses': [
     {
@@ -30,7 +30,7 @@ final object = {
       'type': 'Address',
       'id': 4,
       'street': 'Street 52b',
-    }
+    },
   ],
   'list': [1, 2, 3, 4, 5, 6, 7, 8, 8, 10],
   '0': {

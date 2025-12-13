@@ -1,10 +1,10 @@
 name: pro_mpack
 description: A Dart library for serializing and deserializing data in the MessagePack format.
 
-version: 2.0.2
+version: 2.1.0
 
 environment:
-  sdk: ^3.6.0
+  sdk: ^3.10.0
 
 repository: https://github.com/pro100andrey/pro_mpack
 issue_tracker: https://github.com/pro100andrey/pro_mpack/issues
@@ -28,7 +28,7 @@ topics:
 
 
 dependencies:
-  pro_binary: ^2.1.0
+  pro_binary: ^2.2.0
 
 dev_dependencies:
   benchmark_harness: ^2.4.0

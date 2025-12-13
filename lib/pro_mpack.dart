@@ -166,10 +166,6 @@ Uint8List serializeAll(
 /// [list]: The `Uint8List` containing the MessagePack-encoded binary
 /// data.
 /// [extDecoder]: An optional custom decoder for handling extension types.
-/// If provided, custom extension types will be decoded using this decoder.
-/// [copyBinaryData]: When `true`, binary data is copied instead of using
-/// views. Set to `true` if you need to ensure the original buffer is not
-/// retained. Defaults to `false` for better performance.
 ///
 /// Returns the deserialized Dart object, which can be `null`, a primitive
 /// type, a collection (`List` or `Map`), or a custom type decoded by
@@ -179,12 +175,8 @@ Uint8List serializeAll(
 Object? deserialize(
   Uint8List list, {
   ExtDecoder? extDecoder,
-  bool copyBinaryData = false,
 }) {
-  final d = Deserializer(
-    list,
-    extDecoder: extDecoder,
-  );
+  final d = Deserializer(list, extDecoder: extDecoder);
 
   return d.decode();
 }
@@ -224,10 +216,7 @@ List<Object?> deserializeAll(
   Uint8List list, {
   ExtDecoder? extDecoder,
 }) {
-  final d = Deserializer(
-    list,
-    extDecoder: extDecoder,
-  );
+  final d = Deserializer(list, extDecoder: extDecoder);
 
   final results = <Object?>[];
   while (d.hasBytesAvailable) {

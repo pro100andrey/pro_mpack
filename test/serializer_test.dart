@@ -95,7 +95,7 @@ void main() {
     ); // -2147483648
   });
 
-  test('serializes int 64 format correctly', () {
+  test('serializes min int 64 format correctly', () {
     final result = serialize(-9223372036854775808);
     expect(
       result,
@@ -693,9 +693,9 @@ void main() {
     List<int> l(int n) => List.filled(n, 0);
     // Helper to generate map of length N
     Map<int, int> m(int n) => Map.fromIterables(
-          List.generate(n, (i) => i),
-          List.generate(n, (i) => i),
-        );
+      List.generate(n, (i) => i),
+      List.generate(n, (i) => i),
+    );
 
     test('String boundary: 31 (fixstr) vs 32 (str8)', () {
       expect(serialize(s(31))[0] & 0xe0, 0xa0); // fixstr prefix

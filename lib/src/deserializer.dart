@@ -62,8 +62,8 @@ class Deserializer {
   Deserializer(
     Uint8List buffer, {
     ExtDecoder? extDecoder,
-  })  : _reader = BinaryReader(buffer),
-        _extDecoder = extDecoder;
+  }) : _reader = BinaryReader(buffer),
+       _extDecoder = extDecoder;
 
   final BinaryReader _reader;
   final ExtDecoder? _extDecoder;
@@ -284,8 +284,8 @@ class Deserializer {
       case 8:
         final reader = BinaryReader(data);
         final data64 = reader.readUint64();
-        final nanoSeconds = data64 >> 34; // top 30 bits
-        final seconds = data64 & 0x3FFFFFFFF; // bottom 34 bits
+        final nanoSeconds = (data64 >> 34) & 0x3FFFFFFF;
+        final seconds = data64 & 0x3FFFFFFFF;
         return DateTime.fromMillisecondsSinceEpoch(
           seconds * 1000,
           isUtc: true,

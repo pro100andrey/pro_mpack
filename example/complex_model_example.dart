@@ -86,7 +86,6 @@ class UserCodec with ExtEncoder implements ExtDecoder {
       _writeString(writer, object.address.street);
       writer
         ..writeUint32(object.address.zip)
-
         // Inline Devices
         ..writeUint16(object.devices.length);
       for (final device in object.devices) {
