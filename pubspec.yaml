@@ -28,7 +28,8 @@ topics:
 
 
 dependencies:
-  pro_binary: ^2.2.0
+  pro_binary:
+    path: ../pro_binary
 
 dev_dependencies:
   benchmark_harness: ^2.4.0

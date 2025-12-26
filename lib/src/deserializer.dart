@@ -236,7 +236,7 @@ class Deserializer {
   @pragma('vm:prefer-inline')
   @pragma('dart2js:tryInline')
   Map<Object?, Object?> _decodeMap(int length) {
-    final map = {};
+    final map = <Object?, Object?>{};
 
     for (var i = 0; i < length; i++) {
       final key = decode();
@@ -273,17 +273,20 @@ class Deserializer {
   @pragma('vm:prefer-inline')
   @pragma('dart2js:tryInline')
   DateTime _decodeTimestamp(Uint8List data) {
+    final view = ByteData.view(
+      data.buffer,
+      data.offsetInBytes,
+      data.lengthInBytes,
+    );
     switch (data.length) {
       case 4:
-        final reader = BinaryReader(data);
-        final seconds = reader.readUint32();
+        final seconds = view.getUint32(0);
         return DateTime.fromMillisecondsSinceEpoch(
           seconds * 1000,
           isUtc: true,
         );
       case 8:
-        final reader = BinaryReader(data);
-        final data64 = reader.readUint64();
+        final data64 = view.getUint64(0);
         final nanoSeconds = (data64 >> 34) & 0x3FFFFFFF;
         final seconds = data64 & 0x3FFFFFFFF;
         return DateTime.fromMillisecondsSinceEpoch(
@@ -291,9 +294,8 @@ class Deserializer {
           isUtc: true,
         ).add(Duration(microseconds: nanoSeconds ~/ 1000));
       case 12:
-        final reader = BinaryReader(data);
-        final nanoSeconds = reader.readUint32();
-        final seconds = reader.readInt64();
+        final nanoSeconds = view.getUint32(0);
+        final seconds = view.getInt64(4);
         return DateTime.fromMillisecondsSinceEpoch(
           seconds * 1000,
           isUtc: true,

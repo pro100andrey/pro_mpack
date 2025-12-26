@@ -113,6 +113,7 @@ class Serializer {
 
   late final BinaryWriter _writer;
   final ExtEncoder? _extEncoder;
+  static const _utf8Encoder = Utf8Encoder();
 
   /// Encodes a given [value] into MessagePack format.
   ///
@@ -283,7 +284,7 @@ class Serializer {
   @pragma('vm:prefer-inline')
   @pragma('dart2js:tryInline')
   void writeString(String value) {
-    final encoded = const Utf8Encoder().convert(value);
+    final encoded = _utf8Encoder.convert(value);
     final length = encoded.length;
 
     switch (length) {

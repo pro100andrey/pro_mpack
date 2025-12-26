@@ -38,7 +38,10 @@
 /// See the README for complete examples and documentation.
 library;
 
+import 'dart:convert';
 import 'dart:typed_data';
+
+import 'package:pro_binary/pro_binary.dart';
 
 import 'pro_mpack.dart' show MessagePackError;
 import 'src/deserializer.dart';
@@ -224,4 +227,185 @@ List<Object?> deserializeAll(
   }
 
   return results;
+}
+
+class MessagePackCodec extends Codec<Object?, Uint8List> {
+  const MessagePackCodec({
+    this.registry,
+    this.defaultBufferSize = 1024,
+  });
+  final MsgPackRegistry? registry;
+  final int defaultBufferSize;
+
+  @override
+  Converter<Object?, Uint8List> get encoder =>
+      _MsgPackEncoder(registry, defaultBufferSize);
+
+  @override
+  Converter<Uint8List, Object?> get decoder => _MsgPackDecoder(registry);
+}
+
+class _MsgPackEncoder extends Converter<Object?, Uint8List> {
+  _MsgPackEncoder(this.registry, this.bufferSize);
+  final ExtEncoder? registry;
+  final int bufferSize;
+
+  @override
+  Uint8List convert(Object? input) {
+    final s = Serializer(extEncoder: registry, initialBufferSize: bufferSize)
+      ..encode(input);
+    return s.takeBytes();
+  }
+}
+
+class _MsgPackDecoder extends Converter<Uint8List, Object?> {
+  _MsgPackDecoder(this.registry);
+  final ExtDecoder? registry;
+
+  @override
+  Object? convert(Uint8List input) =>
+      Deserializer(input, extDecoder: registry).decode();
+}
+
+const msgpack = MessagePackCodec();
+
+extension MsgPackObjectX on Object? {
+  Uint8List toMsgPack({MessagePackCodec codec = msgpack}) => codec.encode(this);
+}
+
+extension MsgPackBinaryX on Uint8List {
+  T fromMsgPack<T>({MessagePackCodec codec = msgpack}) =>
+      codec.decode(this) as T;
+}
+
+abstract class MsgPackExtension {
+  int get typeId;
+  bool canHandle(Object? value);
+  Uint8List encode(Object? value);
+  Object? decode(Uint8List data);
+
+  static MsgPackExtension create<T>({
+    required int typeId,
+    required Uint8List Function(T value) encoder,
+    required T Function(Uint8List data) decoder,
+  }) => _MsgPackExtensionImpl(
+    typeId: typeId,
+    canHandleFn: (value) => value is T,
+    encodeFn: (value) => encoder(value as T),
+    decodeFn: (data) => decoder(data),
+  );
+}
+
+class _MsgPackExtensionImpl implements MsgPackExtension {
+  _MsgPackExtensionImpl({
+    required this.typeId,
+    required bool Function(Object?) canHandleFn,
+    required Uint8List Function(Object?) encodeFn,
+    required Object? Function(Uint8List) decodeFn,
+  }) : _canHandleFn = canHandleFn,
+       _encodeFn = encodeFn,
+       _decodeFn = decodeFn;
+  @override
+  final int typeId;
+  final bool Function(Object?) _canHandleFn;
+  final Uint8List Function(Object?) _encodeFn;
+  final Object? Function(Uint8List) _decodeFn;
+
+  @override
+  bool canHandle(Object? value) => _canHandleFn(value);
+
+  @override
+  Uint8List encode(Object? value) => _encodeFn(value);
+
+  @override
+  Object? decode(Uint8List data) => _decodeFn(data);
+}
+
+class MsgPackRegistry implements ExtEncoder, ExtDecoder {
+  MsgPackRegistry(this._extensions)
+    : _decoderMap = {for (final e in _extensions) e.typeId: e};
+  final List<MsgPackExtension> _extensions;
+  final Map<int, MsgPackExtension> _decoderMap;
+
+  @override
+  int? extTypeForObject(Object? object) {
+    for (final ext in _extensions) {
+      if (ext.canHandle(object)) {
+        return ext.typeId;
+      }
+    }
+
+    return null;
+  }
+
+  @override
+  Uint8List encodeObject(Object? object) {
+    for (final ext in _extensions) {
+      if (ext.canHandle(object)) {
+        return ext.encode(object);
+      }
+    }
+
+    throw MessagePackError('No encoder found for ${object.runtimeType}');
+  }
+
+  @override
+  Object? decodeObject(int extType, Uint8List data) {
+    final ext = _decoderMap[extType];
+    if (ext == null) {
+      throw MessagePackError('No decoder found for extension type $extType');
+    }
+
+    return ext.decode(data);
+  }
+}
+
+class MsgPackSubRegistry<Base> {
+  final Map<Type, int> _typeToId = {};
+  final Map<int, Object? Function(Uint8List)> _decoders = {};
+  final Map<int, Uint8List Function(Object?)> _encoders = {};
+
+  void register<T>({
+    required int subId,
+    required Uint8List Function(T) encoder,
+    required T Function(Uint8List) decoder,
+  }) {
+    _typeToId[T] = subId;
+    _encoders[subId] = (value) => encoder(value as T);
+    _decoders[subId] = (data) => decoder(data);
+  }
+
+  MsgPackExtension asExtension(int mainTypeId) => MsgPackExtension.create<Base>(
+    typeId: mainTypeId,
+    encoder: (value) {
+      final subId = _typeToId[value.runtimeType];
+      if (subId == null) {
+        throw Exception('Subtype ${value.runtimeType} not registered');
+      }
+
+      final payload = _encoders[subId]!(value);
+
+      final writer = BinaryWriter(initialBufferSize: 4 + payload.length)
+        ..writeVarInt(subId)
+        ..writeBytes(payload);
+
+      return writer.takeBytes();
+    },
+    decoder: (data) {
+      if (data.length < 4) {
+        throw Exception('Invalid data for sub-registry: too short');
+      }
+
+      final reader = BinaryReader(data);
+      final subId = reader.readVarInt();
+      final payload = reader.readRemainingBytes();
+
+      final decoder = _decoders[subId];
+      if (decoder == null) {
+        throw Exception('Unknown subTypeId: $subId');
+      }
+
+      return decoder(payload) as Base;
+    },
+  );
 }
