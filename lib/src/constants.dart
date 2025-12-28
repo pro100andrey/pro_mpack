@@ -18,7 +18,7 @@
 library;
 
 // Nil format
-const formatNil = 0xc0;
+const formatNil = 0xc0; // nil
 
 // Boolean formats
 const formatFalse = 0xc2;

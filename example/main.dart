@@ -1,15 +1,25 @@
-// Print deserialized data
+// Ignore file for demonstration purposes
 // ignore_for_file: avoid_print
-
-import 'dart:typed_data';
 
 import 'package:pro_mpack/pro_mpack.dart';
 
-final createdAt = DateTime.utc(3000, 1, 1, 12, 32, 5, 999, 999);
-final updatedAt = DateTime.utc(1969, 12, 31, 23, 59, 59, 999, 999);
-
 abstract class Model {
   const Model();
+}
+
+class Address extends Model {
+  const Address({
+    required this.street,
+    required this.city,
+    required this.zipCode,
+  });
+
+  final String street;
+  final String city;
+  final int zipCode;
+
+  @override
+  String toString() => 'Address(street: $street, city: $city, zip: $zipCode)';
 }
 
 class User extends Model {
@@ -18,89 +28,134 @@ class User extends Model {
     required this.age,
     required this.created,
     required this.updated,
+    required this.addresses,
   });
 
   final String name;
   final int age;
   final DateTime created;
   final DateTime updated;
+  final List<Address> addresses;
+
+  @override
+  String toString() =>
+      'User(name: $name, age: $age, created: $created, updated: $updated, '
+      'addresses: $addresses)';
 }
 
 class Product extends Model {
-  Product(this.price);
-  final int price;
+  Product({
+    required this.description,
+    required this.price,
+    required this.title,
+  });
+
+  final BigInt price;
+  final String description;
+  final String title;
+
+  @override
+  String toString() =>
+      'Product(title: $title, description: $description, price: $price)';
 }
 
-Uint8List _bigIntEncoder(BigInt value) =>
-    Uint8List.fromList(value.toString().codeUnits);
-
-BigInt _bigIntDecoder(Uint8List data) =>
-    BigInt.parse(String.fromCharCodes(data));
-
-final modelRegistry = MsgPackSubRegistry<Model>()
-  ..register<User>(
-    subId: 1,
-    encoder: (u) => serializeAll([u.name, u.age, u.created, u.updated]),
-    decoder: (d) {
-      final fields = deserializeAll(d).cast<Object>();
-
-      final name = fields[0] as String;
-      final age = fields[1] as int;
-      final createdAt = fields[2] as DateTime;
-      final updatedAt = fields[3] as DateTime;
-
-      return User(name: name, age: age, created: createdAt, updated: updatedAt);
-    },
-  )
-  ..register<Product>(
-    subId: 2,
-    encoder: (p) => Uint8List.fromList([p.price]),
-    decoder: (d) => Product(d[0]),
-  );
-
-final bigIntExtension = MsgPackExtension.create<BigInt>(
+final bigIntExt = MessagePackExtension.create<BigInt>(
   typeId: 1,
-  encoder: (value) => Uint8List.fromList(value.toString().codeUnits),
-  decoder: (data) => BigInt.parse(String.fromCharCodes(data)),
+  encoder: (u, reg) => reg.pack(u.toString()),
+  decoder: (d, reg) => BigInt.parse(reg.unpack(d)),
 );
 
-final registry = MsgPackRegistry([
-  modelRegistry.asExtension(2),
-  bigIntExtension,
-]);
+final modelSubRegistry = MessagePackSubRegistry<Model>()
+    .add(
+      subId: 1,
+      encoder: (a, reg) => reg.packAll([a.street, a.city, a.zipCode]),
+      decoder: (d, reg) {
+        final fields = reg.unpackAll(d);
+        final [s as String, c as String, z as int] = fields;
 
+        return Address(street: s, city: c, zipCode: z);
+      },
+    )
+    .add(
+      subId: 2,
+      encoder: (u, reg) => reg.packAll(
+        [u.name, u.age, u.created, u.updated, u.addresses],
+      ),
+      decoder: (d, reg) {
+        final fields = reg.unpackAll(d);
+
+        final [
+          n as String,
+          a as int,
+          c as DateTime,
+          u as DateTime,
+          adds as List,
+        ] = fields;
+
+        return User(
+          name: n,
+          age: a,
+          created: c,
+          updated: u,
+          addresses: adds.cast(),
+        );
+      },
+    )
+    .add(
+      subId: 3,
+      encoder: (p, reg) => reg.packAll([p.title, p.description, p.price]),
+      decoder: (d, reg) {
+        final fields = reg.unpackAll(d);
+        final [t as String, desc as String, price as BigInt] = fields;
+
+        return Product(
+          title: t,
+          description: desc,
+          price: price,
+        );
+      },
+    );
+
+/// Create the main registry and register extensions and sub-registries.
+final registry = MessagePackRegistry()
+  ..register(bigIntExt)
+  ..registerSub(2, modelSubRegistry);
+
+/// Create a codec using the registry.
 final codec = MessagePackCodec(registry: registry);
 
 void main() {
-  final now = DateTime.now().toUtc();
-  final userData = {
-    'id': 1,
-    'name': 'John Doe',
-    'current': now,
-    'created': createdAt,
-    'updated': updatedAt,
-    'balance': BigInt.parse('123456789012345678901234567890'),
-  };
-
-  print('$userData');
-
-  final bytes = userData.toMsgPack(codec: codec);
-  final deserializedData = bytes
-      .fromMsgPack<Map>(codec: codec)
-      .cast<String, Object?>();
-
-  print(deserializedData);
-
+  print('=== Basic Serialization ===');
+  final createdAt = DateTime.utc(3000, 1, 1, 12, 32, 5, 999, 999);
+  final updatedAt = DateTime.utc(1969, 12, 31, 23, 59, 59, 999, 999);
   final user = User(
     name: 'Alice',
     age: 30,
     created: createdAt,
     updated: updatedAt,
+    addresses: [
+      const Address(street: '123 Main St', city: 'New York', zipCode: 10001),
+      const Address(street: '456 Oak Ave', city: 'Los Angeles', zipCode: 90001),
+    ],
   );
 
-  final userBytes = user.toMsgPack(codec: codec);
+  // Using extension methods
+  final userBytes = user.encode(codec: codec);
+  final decodedUser = userBytes.decode<User>(codec: codec);
 
-  final decodedUser = userBytes.fromMsgPack<User>(codec: codec);
+  print('Original: $user');
+  print('Decoded:  $decodedUser');
+  print('Bytes: ${userBytes.length} bytes');
 
-  print('User name: ${decodedUser.name}');
+  print('\n=== Product with BigInt ===');
+  final product = Product(
+    title: 'Gadget',
+    description: 'A useful gadget',
+    price: BigInt.parse('12345678901234567890'),
+  );
+
+  final productBytes = product.encode(codec: codec);
+  final decodedProduct = productBytes.decode<Product>(codec: codec);
+  print(decodedProduct);
+  print('Bytes: ${productBytes.length} bytes');
 }

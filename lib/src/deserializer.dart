@@ -12,7 +12,8 @@ import 'error.dart';
 /// This mixin is intended to be implemented by classes that handle the decoding
 /// of custom extension types in MessagePack format. The implementing class must
 /// provide the implementation for the `decodeObject` method.
-mixin ExtDecoder {
+// ignore: one_member_abstracts
+abstract mixin class ExtDecoder {
   /// Decodes a custom extension type object.
   ///
   /// This method is called when a custom extension type object is encountered
