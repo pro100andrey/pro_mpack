@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:pro_binary/pro_binary.dart';
@@ -108,12 +107,11 @@ class Serializer {
     ExtEncoder? extEncoder,
     int initialBufferSize = 1024,
   }) : _extEncoder = extEncoder {
-    _writer = BinaryWriter(initialBufferSize: initialBufferSize);
+    _writer = BinaryWriterPool.acquire(initialBufferSize);
   }
 
   late final BinaryWriter _writer;
   final ExtEncoder? _extEncoder;
-  static const _utf8Encoder = Utf8Encoder();
 
   /// Encodes a given [value] into MessagePack format.
   ///
@@ -164,6 +162,7 @@ class Serializer {
         writeMap(value);
       case DateTime():
         writeTimestamp(value);
+
       case _ when _extEncoder != null && writeExt(value):
         return;
       case _:
@@ -171,28 +170,7 @@ class Serializer {
     }
   }
 
-  /// Returns the serialized bytes as a [Uint8List] and resets the internal
-  /// buffer.
-  ///
-  /// This method extracts all encoded data from the internal buffer and
-  /// returns it as a [Uint8List]. After calling this method, the
-  /// serializer's buffer is cleared and ready for reuse.
-  ///
-  /// Example:
-  /// ```dart
-  /// final serializer = Serializer();
-  /// serializer.encode({'a': 1});
-  /// final bytes1 = serializer.takeBytes();
-  ///
-  /// serializer.encode({'b': 2}); // Reuse the serializer
-  /// final bytes2 = serializer.takeBytes();
-  /// ```
-  ///
-  /// Returns a [Uint8List] containing all MessagePack-encoded data.
-  Uint8List takeBytes() => _writer.takeBytes();
-
   @pragma('vm:prefer-inline')
-  @pragma('dart2js:tryInline')
   //
   // ignore: avoid_positional_boolean_parameters
   void writeBool(bool value) {
@@ -200,23 +178,16 @@ class Serializer {
   }
 
   @pragma('vm:prefer-inline')
-  @pragma('dart2js:tryInline')
   void writeNull() {
     _writer.writeUint8(formatNil);
   }
 
   @pragma('vm:prefer-inline')
-  @pragma('dart2js:tryInline')
   void writeInt(int value) {
-    if (value >= 0) {
-      writePositiveInt(value);
-    } else {
-      writeNegativeInt(value);
-    }
+    value >= 0 ? writePositiveInt(value) : writeNegativeInt(value);
   }
 
   @pragma('vm:prefer-inline')
-  @pragma('dart2js:tryInline')
   void writeNegativeInt(int value) {
     switch (value) {
       case >= limitNegativeInt5:
@@ -241,7 +212,6 @@ class Serializer {
   }
 
   @pragma('vm:prefer-inline')
-  @pragma('dart2js:tryInline')
   void writePositiveInt(int value) {
     switch (value) {
       case <= limitInt8:
@@ -266,7 +236,6 @@ class Serializer {
   }
 
   @pragma('vm:prefer-inline')
-  @pragma('dart2js:tryInline')
   void writeFloat(Float value) {
     _writer
       ..writeUint8(formatFloat32)
@@ -274,7 +243,6 @@ class Serializer {
   }
 
   @pragma('vm:prefer-inline')
-  @pragma('dart2js:tryInline')
   void writeDouble(double value) {
     _writer
       ..writeUint8(formatFloat64)
@@ -282,10 +250,8 @@ class Serializer {
   }
 
   @pragma('vm:prefer-inline')
-  @pragma('dart2js:tryInline')
   void writeString(String value) {
-    final encoded = _utf8Encoder.convert(value);
-    final length = encoded.length;
+    final length = getUtf8Length(value);
 
     switch (length) {
       case <= 31:
@@ -308,11 +274,10 @@ class Serializer {
         );
     }
 
-    _writer.writeBytes(encoded);
+    _writer.writeString(value);
   }
 
   @pragma('vm:prefer-inline')
-  @pragma('dart2js:tryInline')
   void writeBinary(Uint8List buffer) {
     final length = buffer.length;
 
@@ -339,7 +304,6 @@ class Serializer {
   }
 
   @pragma('vm:prefer-inline')
-  @pragma('dart2js:tryInline')
   void writeIterable(Iterable iterable) {
     final length = iterable.length;
 
@@ -375,7 +339,6 @@ class Serializer {
   }
 
   @pragma('vm:prefer-inline')
-  @pragma('dart2js:tryInline')
   void writeMap(Map dictionary) {
     final length = dictionary.length;
 
@@ -403,7 +366,6 @@ class Serializer {
   }
 
   @pragma('vm:prefer-inline')
-  @pragma('dart2js:tryInline')
   void writeTimestamp(DateTime value) {
     final micro = (value.isUtc ? value : value.toUtc()).microsecondsSinceEpoch;
     final sec = (micro / 1000000).floor();
@@ -412,7 +374,6 @@ class Serializer {
     if ((sec >> 34) == 0) {
       // 32-bit (secs) or 64-bit (30-bit nsec | 34-bit secs)
       final data64 = (nano << 34) | sec;
-
       // Timestamp 32
       // 1970 ... 2106 and no nanoseconds
       if (nano == 0 && sec >= 0 && sec <= limitUint32) {
@@ -422,7 +383,6 @@ class Serializer {
           ..writeUint32(sec);
         return;
       }
-
       // Timestamp 64
       // 1970 ... ~2514 with nanoseconds
       _writer
@@ -442,11 +402,14 @@ class Serializer {
   }
 
   @pragma('vm:prefer-inline')
-  @pragma('dart2js:tryInline')
   bool writeExt(Object? object) {
     final type = _extEncoder?.extTypeForObject(object);
 
     if (type != null) {
+      if (type < -128 || type > 127) {
+        throw MessagePackError('Type must be in the range of -128 to 127');
+      }
+
       final encoded = _extEncoder?.encodeObject(object);
 
       if (encoded == null) {
@@ -484,10 +447,6 @@ class Serializer {
           throw MessagePackError('Size must be at most $limitUint32');
       }
 
-      if (type < -128 || type > 127) {
-        throw MessagePackError('Type must be in the range of -128 to 127');
-      }
-
       _writer
         ..writeInt8(type)
         ..writeBytes(encoded);
@@ -496,5 +455,29 @@ class Serializer {
     }
 
     return false;
+  }
+
+  /// Returns the serialized bytes as a [Uint8List] and resets the internal
+  /// buffer.
+  ///
+  /// This method extracts all encoded data from the internal buffer and
+  /// returns it as a [Uint8List]. After calling this method, the
+  /// serializer's buffer is cleared and ready for reuse.
+  ///
+  /// Example:
+  /// ```dart
+  /// final serializer = Serializer();
+  /// serializer.encode({'a': 1});
+  /// final bytes1 = serializer.takeBytes();
+  ///
+  /// serializer.encode({'b': 2}); // Reuse the serializer
+  /// final bytes2 = serializer.takeBytes();
+  /// ```
+  ///
+  /// Returns a [Uint8List] containing all MessagePack-encoded data.
+  Uint8List takeBytes() {
+    final bytes = _writer.toBytes();
+    BinaryWriterPool.release(_writer);
+    return bytes;
   }
 }

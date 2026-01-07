@@ -74,11 +74,11 @@ class MessagePackRegistry implements ExtEncoder, ExtDecoder {
   ///   .register(anotherExtension);
   /// ```
   MessagePackRegistry register(MessagePackExtension ext) {
-    _extensions.add(ext);
-
     if (_decoderMap.containsKey(ext.typeId)) {
       throw Exception('Extension with typeId ${ext.typeId} already registered');
     }
+
+    _extensions.add(ext);
 
     _decoderMap[ext.typeId] = ext;
     _typeCache.clear();
@@ -131,6 +131,7 @@ class MessagePackRegistry implements ExtEncoder, ExtDecoder {
   /// final data = registry.packAll([1, 'hello', true, null]);
   /// final values = registry.unpackAll(data); // [1, 'hello', true, null]
   /// ```
+  @pragma('vm:prefer-inline')
   Uint8List packAll(List<Object?> values) {
     final s = Serializer(extEncoder: this);
     // Optimize for-loop to avoid closure allocation
@@ -156,6 +157,7 @@ class MessagePackRegistry implements ExtEncoder, ExtDecoder {
   /// final data = registry.packAll([1, 'hello', true]);
   /// final values = registry.unpackAll(data); // [1, 'hello', true]
   /// ```
+  @pragma('vm:prefer-inline')
   List<Object?> unpackAll(Uint8List data) {
     final d = Deserializer(data, extDecoder: this);
     final results = <Object?>[];
@@ -180,6 +182,7 @@ class MessagePackRegistry implements ExtEncoder, ExtDecoder {
   /// ```dart
   /// final data = registry.pack(myCustomObject);
   /// ```
+  @pragma('vm:prefer-inline')
   Uint8List pack<T>(T? value) {
     final s = Serializer(extEncoder: this)..encode(value);
 
@@ -200,6 +203,7 @@ class MessagePackRegistry implements ExtEncoder, ExtDecoder {
   /// final data = registry.pack(myCustomObject);
   /// final decoded = registry.unpack<MyCustomClass>(data);
   /// ```
+  @pragma('vm:prefer-inline')
   T? unpack<T>(Uint8List data) {
     final d = Deserializer(data, extDecoder: this);
 
@@ -379,33 +383,36 @@ class MessagePackSubRegistry<Base> {
   /// The resulting extension encodes the `subId` as a variable-length integer
   /// followed by the subtype-specific payload. During decoding, the `subId`
   /// is read first to determine which decoder to use.
-  MessagePackExtension toExtension(int mainTypeId) =>
-      MessagePackExtension.create<Base>(
-        typeId: mainTypeId,
-        encoder: (value, registry) {
-          final subId = _typeToId[value.runtimeType];
-          if (subId == null) {
-            throw Exception('Subtype ${value.runtimeType} not registered');
-          }
+  @pragma('vm:prefer-inline')
+  MessagePackExtension toExtension(int mainTypeId) => .create(
+    typeId: mainTypeId,
+    encoder: (value, registry) {
+      final subId = _typeToId[value.runtimeType];
+      if (subId == null) {
+        throw Exception('Subtype ${value.runtimeType} not registered');
+      }
 
-          final payload = _encoders[subId]!(value, registry);
-          final writer = BinaryWriter(initialBufferSize: payload.length + 4)
-            ..writeVarInt(subId)
-            ..writeBytes(payload);
+      final payload = _encoders[subId]!(value, registry);
+      final writer = BinaryWriterPool.acquire()
+        ..writeVarInt(subId)
+        ..writeBytes(payload);
 
-          return writer.takeBytes();
-        },
-        decoder: (data, registry) {
-          final reader = BinaryReader(data);
-          final subId = reader.readVarInt();
-          final payload = reader.readRemainingBytes();
+      final bytes = writer.toBytes();
+      BinaryWriterPool.release(writer);
 
-          final decoderFn = _decoders[subId];
-          if (decoderFn == null) {
-            throw Exception('Unknown subTypeId: $subId');
-          }
+      return bytes;
+    },
+    decoder: (data, registry) {
+      final reader = BinaryReader(data);
+      final subId = reader.readVarInt();
+      final payload = reader.readRemainingBytes();
 
-          return decoderFn(payload, registry) as Base;
-        },
-      );
+      final decoderFn = _decoders[subId];
+      if (decoderFn == null) {
+        throw Exception('Unknown subTypeId: $subId');
+      }
+
+      return decoderFn(payload, registry) as Base;
+    },
+  );
 }

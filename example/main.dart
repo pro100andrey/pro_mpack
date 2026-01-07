@@ -20,23 +20,27 @@ class Address {
 
 class User {
   const User({
+    required this.id,
     required this.name,
     required this.age,
+    required this.email,
     required this.created,
     required this.updated,
     required this.addresses,
   });
 
+  final int id;
   final String name;
   final int age;
+  final String email;
   final DateTime created;
   final DateTime updated;
   final List<Address> addresses;
 
   @override
   String toString() =>
-      'User(name: $name, age: $age, created: $created, updated: $updated, '
-      'addresses: $addresses)';
+      'User(id: $id, name: $name, age: $age, email: $email, created: $created, '
+      'updated: $updated, addresses: $addresses)';
 }
 
 class Product {
@@ -55,6 +59,8 @@ class Product {
       'Product(title: $title, description: $description, price: $price)';
 }
 
+/// Create a MessagePack extension for BigInt type.
+/// This extension encodes BigInt as its string representation
 final bigIntExt = MessagePackExtension.create<BigInt>(
   typeId: 1,
   encoder: (u, reg) => reg.pack(u.toString()),
@@ -64,8 +70,13 @@ final bigIntExt = MessagePackExtension.create<BigInt>(
 final modelSubRegistry = MessagePackSubRegistry()
     .add(
       subId: 1,
-      encoder: (address, reg) =>
-          reg.packAll([address.street, address.city, address.zipCode]),
+      encoder: (address, reg) => reg.packAll(
+        [
+          address.street,
+          address.city,
+          address.zipCode,
+        ],
+      ),
       decoder: (data, reg) {
         final fields = reg.unpackAll(data);
         final [s as String, c as String, z as int] = fields;
@@ -76,23 +87,33 @@ final modelSubRegistry = MessagePackSubRegistry()
     .add(
       subId: 2,
       encoder: (user, reg) => reg.packAll(
-        [user.name, user.age, user.created, user.updated, user.addresses],
+        [
+          user.name,
+          user.age,
+          user.created,
+          user.updated,
+          user.addresses,
+        ],
       ),
       decoder: (data, reg) {
         final fields = reg.unpackAll(data);
         final [
-          n as String,
-          a as int,
-          c as DateTime,
-          u as DateTime,
+          id as int,
+          name as String,
+          age as int,
+          email as String,
+          created as DateTime,
+          updated as DateTime,
           adds as List,
         ] = fields;
 
         return User(
-          name: n,
-          age: a,
-          created: c,
-          updated: u,
+          id: id,
+          name: name,
+          age: age,
+          email: email,
+          created: created,
+          updated: updated,
           addresses: adds.cast(),
         );
       },
@@ -126,8 +147,10 @@ void main() {
   final createdAt = DateTime.utc(3000, 1, 1, 12, 32, 5, 999, 999);
   final updatedAt = DateTime.utc(1969, 12, 31, 23, 59, 59, 999, 999);
   final user = User(
+    id: 1,
     name: 'Alice',
     age: 30,
+    email: 'alice@example.com',
     created: createdAt,
     updated: updatedAt,
     addresses: [

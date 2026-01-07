@@ -235,7 +235,6 @@ class Deserializer {
   }
 
   @pragma('vm:prefer-inline')
-  @pragma('dart2js:tryInline')
   Map<Object?, Object?> _decodeMap(int length) {
     final map = <Object?, Object?>{};
 
@@ -249,7 +248,6 @@ class Deserializer {
   }
 
   @pragma('vm:prefer-inline')
-  @pragma('dart2js:tryInline')
   List<Object?> _decodeArray(int length) {
     final list = List<Object?>.filled(length, null);
     for (var i = 0; i < length; i++) {
@@ -259,7 +257,6 @@ class Deserializer {
   }
 
   @pragma('vm:prefer-inline')
-  @pragma('dart2js:tryInline')
   Object? _readExt(int length) {
     final extType = _reader.readInt8();
     final data = _reader.readBytes(length);
@@ -272,7 +269,6 @@ class Deserializer {
   }
 
   @pragma('vm:prefer-inline')
-  @pragma('dart2js:tryInline')
   DateTime _decodeTimestamp(Uint8List data) {
     final view = ByteData.view(
       data.buffer,
