@@ -593,7 +593,7 @@ void main() {
       ]);
       expect(
         () => deserializeAll(buffer),
-        throwsA(isA<AssertionError>()),
+        throwsA(isA<RangeError>()),
       );
     });
 
