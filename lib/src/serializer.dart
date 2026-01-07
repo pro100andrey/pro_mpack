@@ -12,7 +12,7 @@ import 'error.dart';
 /// of custom extension types in MessagePack format. The implementing class must
 /// provide the implementations for the `extTypeForObject` and `encodeObject`
 ///  methods.
-abstract mixin class  ExtEncoder {
+abstract mixin class ExtEncoder {
   /// Returns the extension type for a given [object].
   ///
   /// This method determines the custom extension type integer that represents

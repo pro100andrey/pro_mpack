@@ -3,11 +3,7 @@
 
 import 'package:pro_mpack/pro_mpack.dart';
 
-abstract class Model {
-  const Model();
-}
-
-class Address extends Model {
+class Address {
   const Address({
     required this.street,
     required this.city,
@@ -22,7 +18,7 @@ class Address extends Model {
   String toString() => 'Address(street: $street, city: $city, zip: $zipCode)';
 }
 
-class User extends Model {
+class User {
   const User({
     required this.name,
     required this.age,
@@ -43,7 +39,7 @@ class User extends Model {
       'addresses: $addresses)';
 }
 
-class Product extends Model {
+class Product {
   Product({
     required this.description,
     required this.price,
@@ -65,12 +61,13 @@ final bigIntExt = MessagePackExtension.create<BigInt>(
   decoder: (d, reg) => BigInt.parse(reg.unpack(d)),
 );
 
-final modelSubRegistry = MessagePackSubRegistry<Model>()
+final modelSubRegistry = MessagePackSubRegistry()
     .add(
       subId: 1,
-      encoder: (a, reg) => reg.packAll([a.street, a.city, a.zipCode]),
-      decoder: (d, reg) {
-        final fields = reg.unpackAll(d);
+      encoder: (address, reg) =>
+          reg.packAll([address.street, address.city, address.zipCode]),
+      decoder: (data, reg) {
+        final fields = reg.unpackAll(data);
         final [s as String, c as String, z as int] = fields;
 
         return Address(street: s, city: c, zipCode: z);
@@ -78,12 +75,11 @@ final modelSubRegistry = MessagePackSubRegistry<Model>()
     )
     .add(
       subId: 2,
-      encoder: (u, reg) => reg.packAll(
-        [u.name, u.age, u.created, u.updated, u.addresses],
+      encoder: (user, reg) => reg.packAll(
+        [user.name, user.age, user.created, user.updated, user.addresses],
       ),
-      decoder: (d, reg) {
-        final fields = reg.unpackAll(d);
-
+      decoder: (data, reg) {
+        final fields = reg.unpackAll(data);
         final [
           n as String,
           a as int,
@@ -103,9 +99,10 @@ final modelSubRegistry = MessagePackSubRegistry<Model>()
     )
     .add(
       subId: 3,
-      encoder: (p, reg) => reg.packAll([p.title, p.description, p.price]),
-      decoder: (d, reg) {
-        final fields = reg.unpackAll(d);
+      encoder: (product, reg) =>
+          reg.packAll([product.title, product.description, product.price]),
+      decoder: (data, reg) {
+        final fields = reg.unpackAll(data);
         final [t as String, desc as String, price as BigInt] = fields;
 
         return Product(
