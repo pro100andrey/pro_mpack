@@ -15,6 +15,57 @@ void main() {
     expect(result, isNull);
   });
 
+  // Never used format (reserved)
+  test('throws error on reserved byte 0xc1', () {
+    final buffer = Uint8List.fromList([0xc1 /* never used */]);
+    expect(
+      () => deserialize(buffer),
+      throwsA(
+        isA<MessagePackError>().having(
+          (e) => e.message,
+          'message',
+          contains('reserved and never used'),
+        ),
+      ),
+    );
+  });
+
+  test('throws error on 0xc1 in array', () {
+    final buffer = Uint8List.fromList([
+      0x92, // fixarray with 2 elements
+      0x01, // first element: 1
+      0xc1, // second element: never used byte
+    ]);
+    expect(
+      () => deserialize(buffer),
+      throwsA(
+        isA<MessagePackError>().having(
+          (e) => e.message,
+          'message',
+          contains('reserved and never used'),
+        ),
+      ),
+    );
+  });
+
+  test('throws error on 0xc1 as map value', () {
+    final buffer = Uint8List.fromList([
+      0x81, // fixmap with 1 key-value pair
+      0xa3, ...'key'.codeUnits, // key: "key"
+      0xc1, // value: never used byte
+    ]);
+    expect(
+      () => deserialize(buffer),
+      throwsA(
+        isA<MessagePackError>().having(
+          (e) => e.message,
+          'message',
+          contains('reserved and never used'),
+        ),
+      ),
+    );
+  });
+
   // Boolean formats
   test('deserializes false format correctly', () {
     final buffer = Uint8List.fromList([0xc2 /* false */]);

@@ -18,79 +18,80 @@
 library;
 
 // Nil format
-const formatNil = 0xc0; // nil
+const fNil = 0xc0; // 192, nil
+
+// Never used (reserved by MessagePack specification)
+const fNeverUsed = 0xc1; // 193, never used
 
 // Boolean formats
-const formatFalse = 0xc2;
-const formatTrue = 0xc3;
-
-// Integer formats
-const formatUint8 = 0xcc;
-const formatUint16 = 0xcd;
-const formatUint32 = 0xce;
-const formatUint64 = 0xcf;
-
-const formatInt8 = 0xd0;
-const formatInt16 = 0xd1;
-const formatInt32 = 0xd2;
-const formatInt64 = 0xd3;
-
-// Float formats
-const formatFloat32 = 0xca;
-const formatFloat64 = 0xcb;
-
-// String formats
-const formatStr8 = 0xd9;
-const formatStr16 = 0xda;
-const formatStr32 = 0xdb;
+const fFalse = 0xc2; // 194, false
+const fTrue = 0xc3; // 195, true
 
 // Binary formats
-const formatBin8 = 0xc4;
-const formatBin16 = 0xc5;
-const formatBin32 = 0xc6;
-
-// Array formats
-const formatArray16 = 0xdc;
-const formatArray32 = 0xdd;
-
-// Map formats
-const formatMap16 = 0xde;
-const formatMap32 = 0xdf;
+const fBin8 = 0xc4; // 196
+const fBin16 = 0xc5; // 197
+const fBin32 = 0xc6; // 198
 
 // Extension formats
-const formatFixExt1 = 0xd4;
-const formatFixExt2 = 0xd5;
-const formatFixExt4 = 0xd6;
-const formatFixExt8 = 0xd7;
-const formatFixExt16 = 0xd8;
+const fExt8 = 0xc7; // 199
+const fExt16 = 0xc8; // 200
+const fExt32 = 0xc9; // 201
 
-const formatExt8 = 0xc7;
-const formatExt16 = 0xc8;
-const formatExt32 = 0xc9;
+// Float formats
+const fFloat32 = 0xca; // 202
+const fFloat64 = 0xcb; // 203
+
+// Integer formats
+const fUint8 = 0xcc; // 204
+const fUint16 = 0xcd; // 205
+const fUint32 = 0xce; // 206
+const fUint64 = 0xcf; // 207
+
+const fInt8 = 0xd0; // 208
+const fInt16 = 0xd1; // 209
+const fInt32 = 0xd2; // 210
+const fInt64 = 0xd3; // 211
+
+// Extension formats
+const fFixExt1 = 0xd4; // 212
+const fFixExt2 = 0xd5; // 213
+const fFixExt4 = 0xd6; // 214
+const fFixExt8 = 0xd7; // 215
+const fFixExt16 = 0xd8; // 216
+
+// String formats
+const fStr8 = 0xd9; // 217
+const fStr16 = 0xda; // 218
+const fStr32 = 0xdb; // 219
+
+// Array formats
+const fArray16 = 0xdc; // 220
+const fArray32 = 0xdd; // 221
+
+// Map formats
+const fMap16 = 0xde; // 222
+const fMap32 = 0xdf; // 223
 
 // Fix formats masks and ranges
-const formatPosFixIntMask = 0x80; // 0xxxxxxx
-const formatNegFixIntMask = 0xe0; // 111xxxxx
-const formatNegFixIntPrefix = 0xe0;
-const formatFixMapMask = 0xf0; // 1000xxxx
-const formatFixMapPrefix = 0x80;
-const formatFixArrayMask = 0xf0; // 1001xxxx
-const formatFixArrayPrefix = 0x90;
-const formatFixStrMask = 0xe0; // 101xxxxx
-const formatFixStrPrefix = 0xa0;
+const fNegFixIntPrefix = 0xe0; // 224
+const fFixMapPrefix = 0x80; // 128
+const fFixMapEnd = 0x8f; // 143
+const fFixArrayPrefix = 0x90; // 144
+const fFixArrayEnd = 0x9f; // 159
+const fFixStrPrefix = 0xa0; // 160
+const fFixStrEnd = 0xbf; // 191
+const fFixStrDataMask = 0x1f; // 31
+const fFixCountMask = 0x0f;
 
 // Value limits
-const limitUint32 = 4294967295; // 0xFFFFFFFF
-const limitUint16 = 65535; // 0xFFFF
-const limitUint8 = 255; // 0xFF
-
-const limitInt32 = 2147483647;
-const limitInt16 = 32767;
-const limitInt8 = 127;
-const limitNegativeInt5 = -32;
-const limitNegativeInt8 = -128;
-const limitNegativeInt16 = -32768;
-const limitNegativeInt32 = -2147483648;
+const limitUint32 = 0xffffffff; // 4294967295
+const limitUint16 = 0xffff; // 65535
+const limitUint8 = 0xff; // 255
+const limitInt8 = 0x7f; // 127
+const limitNegFixInt = -0x20; // -32
+const limitNegInt8 = -0x80; // -128
+const limitNegInt16 = -0x8000; // -32768
+const limitNegInt32 = -0x80000000; // -2147483648
 
 // Extension types
 const extTypeTimestamp = -1;

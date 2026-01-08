@@ -28,10 +28,9 @@ topics:
 
 
 dependencies:
-  pro_binary:
-    path: ../pro_binary
+  pro_binary: ^3.0.0
 
 dev_dependencies:
   benchmark_harness: ^2.4.0
   pro_lints: ^5.1.0
-  test: ^1.28.0
+  test: ^1.29.0

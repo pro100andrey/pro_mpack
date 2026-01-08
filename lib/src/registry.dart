@@ -55,8 +55,11 @@ class MessagePackRegistry implements ExtEncoder, ExtDecoder {
   // Maps extension type IDs to their corresponding extensions.
   final Map<int, MessagePackExtension> _decoderMap = {};
 
-  // Cache for mapping runtime types to their extensions.
-  final Map<Type, MessagePackExtension?> _typeCache = {};
+  // Direct mapping from Type to Extension for O(1) lookup.
+  final Map<Type, MessagePackExtension> _extensionsMap = {};
+
+  // Cache for types that have no registered extension.
+  final Set<Type> _notFoundCache = {};
 
   /// Registers a MessagePack extension.
   ///
@@ -79,9 +82,12 @@ class MessagePackRegistry implements ExtEncoder, ExtDecoder {
     }
 
     _extensions.add(ext);
-
     _decoderMap[ext.typeId] = ext;
-    _typeCache.clear();
+
+    // Clear caches as new extension might handle previously unknown types
+    _extensionsMap.clear();
+    _notFoundCache.clear();
+
     // Allow method chaining
     // ignore: avoid_returning_this
     return this;
@@ -185,7 +191,6 @@ class MessagePackRegistry implements ExtEncoder, ExtDecoder {
   @pragma('vm:prefer-inline')
   Uint8List pack<T>(T? value) {
     final s = Serializer(extEncoder: this)..encode(value);
-
     return s.takeBytes();
   }
 
@@ -206,7 +211,6 @@ class MessagePackRegistry implements ExtEncoder, ExtDecoder {
   @pragma('vm:prefer-inline')
   T? unpack<T>(Uint8List data) {
     final d = Deserializer(data, extDecoder: this);
-
     return d.decode() as T?;
   }
 
@@ -215,8 +219,9 @@ class MessagePackRegistry implements ExtEncoder, ExtDecoder {
   /// Returns the type ID of the first registered extension that can handle
   /// [object], or `null` if no suitable extension is found.
   ///
-  /// This method uses caching to improve performance for repeated lookups
-  /// of the same runtime type.
+  /// This method uses O(1) Map lookup with caching for optimal performance.
+  /// Both positive and negative results are cached to minimize repeated
+  /// lookups.
   @override
   int? extTypeForObject(Object? object) {
     if (object == null) {
@@ -225,20 +230,31 @@ class MessagePackRegistry implements ExtEncoder, ExtDecoder {
 
     final type = object.runtimeType;
 
-    final ext = _typeCache[type];
-    if (ext != null) {
-      return ext.typeId;
+    // Fast path: O(1) direct mapping lookup
+    final directExt = _extensionsMap[type];
+    if (directExt != null) {
+      return directExt.typeId;
     }
 
+    // Check if we already know this type has no extension
+    if (_notFoundCache.contains(type)) {
+      return null;
+    }
+
+    // Slow path: linear search through extensions
+    // This only happens once per unique type
     for (var i = 0; i < _extensions.length; i++) {
       final e = _extensions[i];
 
       if (e.canHandle(object)) {
-        _typeCache[type] = e;
+        // Cache positive result for future O(1) lookups
+        _extensionsMap[type] = e;
         return e.typeId;
       }
     }
 
+    // Cache negative result to avoid future searches
+    _notFoundCache.add(type);
     return null;
   }
 
@@ -252,6 +268,7 @@ class MessagePackRegistry implements ExtEncoder, ExtDecoder {
     if (typeId == null) {
       throw Exception('No encoder for ${object.runtimeType}');
     }
+
     return _decoderMap[typeId]!.encode(object, this);
   }
 
@@ -331,6 +348,9 @@ class MessagePackSubRegistry<Base> {
   /// a subtype of [Base]. Each subtype is identified by a unique [subId]
   /// within this sub-registry.
   ///
+  /// [subId] must be a non-negative integer and should be unique among all
+  /// subtypes registered in this sub-registry.
+  ///
   /// The [encoder] function should serialize an instance of [T] into a
   /// [Uint8List]. It receives the value and the main [MessagePackRegistry],
   /// allowing nested encoding of complex types.
@@ -339,6 +359,8 @@ class MessagePackSubRegistry<Base> {
   /// instance of [T]. It also receives the main registry for nested decoding.
   ///
   /// Returns this sub-registry instance to allow method chaining.
+  ///
+  /// Throws an [Exception] if [subId] is negative.
   ///
   /// Example:
   /// ```dart
@@ -362,6 +384,10 @@ class MessagePackSubRegistry<Base> {
     required Uint8List Function(T value, MessagePackRegistry reg) encoder,
     required T Function(Uint8List data, MessagePackRegistry reg) decoder,
   }) {
+    if (subId < 0) {
+      throw Exception('subId must be non-negative');
+    }
+
     _typeToId[T] = subId;
     _encoders[subId] = (v, reg) => encoder(v as T, reg);
     _decoders[subId] = (d, reg) => decoder(d, reg);
@@ -389,12 +415,27 @@ class MessagePackSubRegistry<Base> {
     encoder: (value, registry) {
       final subId = _typeToId[value.runtimeType];
       if (subId == null) {
-        throw Exception('Subtype ${value.runtimeType} not registered');
+        throw Exception(
+          'Subtype ${value.runtimeType} not registered in sub-registry',
+        );
       }
 
-      final payload = _encoders[subId]!(value, registry);
+      final encoderFn = _encoders[subId];
+      final payload = encoderFn!(value, registry);
+
+      // Optimization: for small subIds (< 128), use single byte instead of
+      // varInt
+      if (subId < 128) {
+        final result = Uint8List(payload.length + 1);
+        result[0] = subId;
+        result.setRange(1, result.length, payload);
+
+        return result;
+      }
+
+      // For larger subIds, use varInt encoding
       final writer = BinaryWriterPool.acquire()
-        ..writeVarInt(subId)
+        ..writeVarUint(subId)
         ..writeBytes(payload);
 
       final bytes = writer.toBytes();
@@ -403,13 +444,25 @@ class MessagePackSubRegistry<Base> {
       return bytes;
     },
     decoder: (data, registry) {
-      final reader = BinaryReader(data);
-      final subId = reader.readVarInt();
-      final payload = reader.readRemainingBytes();
+      int subId;
+      Uint8List payload;
+
+      // Fast path: if first byte < 128, it's a direct subId
+      if (data.isNotEmpty && data[0] < 128) {
+        subId = data[0];
+        payload = Uint8List.sublistView(data, 1);
+      } else {
+        // Slow path: decode varInt
+        final reader = BinaryReader(data);
+        subId = reader.readVarUint();
+        payload = reader.readRemainingBytes();
+      }
 
       final decoderFn = _decoders[subId];
       if (decoderFn == null) {
-        throw Exception('Unknown subTypeId: $subId');
+        throw Exception(
+          'Unknown subTypeId: $subId in sub-registry',
+        );
       }
 
       return decoderFn(payload, registry) as Base;

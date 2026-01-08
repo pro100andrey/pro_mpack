@@ -114,120 +114,139 @@ class Deserializer {
   Object? decode() {
     final u = _reader.readUint8();
 
+    if (u <= limitInt8) {
+      // Positive fixint (0x00 - 0x7f): single-byte positive integer
+      return u;
+    }
+
+    if (u >= fNegFixIntPrefix) {
+      // Negative fixint (0xe0 - 0xff): single-byte negative integer
+      return u - 256;
+    }
+
     // Formats
     switch (u) {
-      // Positive fixint (0x00 - 0x7f): single-byte positive integer
-      case <= limitInt8:
-        return u;
-
-      // Negative fixint (0xe0 - 0xff): single-byte negative integer
-      case >= formatNegFixIntPrefix:
-        return u - 256;
-
       // Fixstr (0xa0 - 0xbf): string with length up to 31 bytes
-      case >= formatFixStrPrefix && <= 0xbf:
-        return _reader.readString(u & 0x1f);
+      case >= fFixStrPrefix && <= fFixStrEnd:
+        return _reader.readString(u & fFixStrDataMask);
 
       // Fixarray (0x90 - 0x9f): array with length up to 15 elements
-      case >= formatFixArrayPrefix && <= 0x9f:
-        return _decodeArray(u & 0x0f);
+      case >= fFixArrayPrefix && <= fFixArrayEnd:
+        return _decodeArray(u & fFixCountMask);
 
       // Fixmap (0x80 - 0x8f): map with length up to 15 key-value pairs
-      case >= formatFixMapPrefix && <= 0x8f:
-        return _decodeMap(u & 0x0f);
+      case >= fFixMapPrefix && <= fFixMapEnd:
+        return _decodeMap(u & fFixCountMask);
+
       // Nil (0xc0): null value
-      case formatNil:
+      case fNil:
         return null;
+
       // False (0xc2): boolean false
-      case formatFalse:
+      case fFalse:
         return false;
       // True (0xc3): boolean true
-      case formatTrue:
+      case fTrue:
         return true;
-      // uint8 (0xcc): 8-bit unsigned integer
-      case formatUint8:
-        return _reader.readUint8();
-      // uint16 (0xcd): 16-bit big-endian unsigned integer
-      case formatUint16:
-        return _reader.readUint16();
-      // uint32 (0xce): 32-bit big-endian unsigned integer
-      case formatUint32:
-        return _reader.readUint32();
-      // uint64 (0xcf): 64-bit big-endian unsigned integer
-      case formatUint64:
-        return _reader.readUint64();
-      // int8 (0xd0): 8-bit signed integer
-      case formatInt8:
-        return _reader.readInt8();
-      // int16 (0xd1): 16-bit big-endian signed integer
-      case formatInt16:
-        return _reader.readInt16();
-      // int32 (0xd2): 32-bit big-endian signed integer
-      case formatInt32:
-        return _reader.readInt32();
-      // int64 (0xd3): 64-bit big-endian signed integer
-      case formatInt64:
-        return _reader.readInt64();
-      // float32 (0xca): 32-bit floating point number (IEEE 754)
-      case formatFloat32:
-        return _reader.readFloat32();
-      // float64 (0xcb): 64-bit floating point number (IEEE 754)
-      case formatFloat64:
-        return _reader.readFloat64();
-      // str8 (0xd9): string with length up to 255 bytes
-      case formatStr8:
-        return _reader.readString(_reader.readUint8());
-      // str16 (0xda): string with length up to 65535 bytes
-      case formatStr16:
-        return _reader.readString(_reader.readUint16());
-      // str32 (0xdb): string with length up to 4294967295 bytes
-      case formatStr32:
-        return _reader.readString(_reader.readUint32());
+
       // bin8 (0xc4): binary data with length up to 255 bytes
-      case formatBin8:
+      case fBin8:
         return _reader.readBytes(_reader.readUint8());
       // bin16 (0xc5): binary data with length up to 65535 bytes
-      case formatBin16:
+      case fBin16:
         return _reader.readBytes(_reader.readUint16());
       // bin32 (0xc6): binary data with length up to 4294967295 bytes
-      case formatBin32:
+      case fBin32:
         return _reader.readBytes(_reader.readUint32());
-      // array16 (0xdc): array with length up to 65535 elements
-      case formatArray16:
-        return _decodeArray(_reader.readUint16());
-      // array32 (0xdd): array with length up to 4294967295 elements
-      case formatArray32:
-        return _decodeArray(_reader.readUint32());
-      // map16 (0xde): map with length up to 65535 key-value pairs
-      case formatMap16:
-        return _decodeMap(_reader.readUint16());
-      // map32 (0xdf): map with length up to 4294967295 key-value pairs
-      case formatMap32:
-        return _decodeMap(_reader.readUint32());
-      // fixext1 (0xd4): extension with 1 byte of data
-      case formatFixExt1:
-        return _readExt(1);
-      // fixext2 (0xd5): extension with 2 bytes of data
-      case formatFixExt2:
-        return _readExt(2);
-      // fixext4 (0xd6): extension with 4 bytes of data
-      case formatFixExt4:
-        return _readExt(4);
-      // fixext8 (0xd7): extension with 8 bytes of data
-      case formatFixExt8:
-        return _readExt(8);
-      // fixext16 (0xd8): extension with 16 bytes of data
-      case formatFixExt16:
-        return _readExt(16);
+
       // ext8 (0xc7): extension with length up to 255 bytes
-      case formatExt8:
+      case fExt8:
         return _readExt(_reader.readUint8());
       // ext16 (0xc8): extension with length up to 65535 bytes
-      case formatExt16:
+      case fExt16:
         return _readExt(_reader.readUint16());
       // ext32 (0xc9): extension with length up to 4294967295 bytes
-      case formatExt32:
+      case fExt32:
         return _readExt(_reader.readUint32());
+
+      // float32 (0xca): 32-bit floating point number (IEEE 754)
+      case fFloat32:
+        return _reader.readFloat32();
+      // float64 (0xcb): 64-bit floating point number (IEEE 754)
+      case fFloat64:
+        return _reader.readFloat64();
+
+      // uint8 (0xcc): 8-bit unsigned integer
+      case fUint8:
+        return _reader.readUint8();
+      // uint16 (0xcd): 16-bit big-endian unsigned integer
+      case fUint16:
+        return _reader.readUint16();
+      // uint32 (0xce): 32-bit big-endian unsigned integer
+      case fUint32:
+        return _reader.readUint32();
+      // uint64 (0xcf): 64-bit big-endian unsigned integer
+      case fUint64:
+        return _reader.readUint64();
+
+      // int8 (0xd0): 8-bit signed integer
+      case fInt8:
+        return _reader.readInt8();
+      // int16 (0xd1): 16-bit big-endian signed integer
+      case fInt16:
+        return _reader.readInt16();
+      // int32 (0xd2): 32-bit big-endian signed integer
+      case fInt32:
+        return _reader.readInt32();
+      // int64 (0xd3): 64-bit big-endian signed integer
+      case fInt64:
+        return _reader.readInt64();
+
+      // fixext1 (0xd4): extension with 1 byte of data
+      case fFixExt1:
+        return _readExt(1);
+      // fixext2 (0xd5): extension with 2 bytes of data
+      case fFixExt2:
+        return _readExt(2);
+      // fixext4 (0xd6): extension with 4 bytes of data
+      case fFixExt4:
+        return _readExt(4);
+      // fixext8 (0xd7): extension with 8 bytes of data
+      case fFixExt8:
+        return _readExt(8);
+      // fixext16 (0xd8): extension with 16 bytes of data
+      case fFixExt16:
+        return _readExt(16);
+
+      // str8 (0xd9): string with length up to 255 bytes
+      case fStr8:
+        return _reader.readString(_reader.readUint8());
+      // str16 (0xda): string with length up to 65535 bytes
+      case fStr16:
+        return _reader.readString(_reader.readUint16());
+      // str32 (0xdb): string with length up to 4294967295 bytes
+      case fStr32:
+        return _reader.readString(_reader.readUint32());
+
+      // array16 (0xdc): array with length up to 65535 elements
+      case fArray16:
+        return _decodeArray(_reader.readUint16());
+      // array32 (0xdd): array with length up to 4294967295 elements
+      case fArray32:
+        return _decodeArray(_reader.readUint32());
+      // map16 (0xde): map with length up to 65535 key-value pairs
+      case fMap16:
+        return _decodeMap(_reader.readUint16());
+      // map32 (0xdf): map with length up to 4294967295 key-value pairs
+      case fMap32:
+        return _decodeMap(_reader.readUint32());
+
+      // Never used (0xc1): reserved by MessagePack specification
+      case fNeverUsed:
+        throw MessagePackError(
+          'Invalid format byte 0xc1: this value is reserved and never used '
+          'in MessagePack specification',
+        );
       // Default case: invalid MessagePack format
       default:
         throw MessagePackError('Invalid MessagePack format');
@@ -236,6 +255,10 @@ class Deserializer {
 
   @pragma('vm:prefer-inline')
   Map<Object?, Object?> _decodeMap(int length) {
+    if (length == 0) {
+      return const {};
+    }
+
     final map = <Object?, Object?>{};
 
     for (var i = 0; i < length; i++) {
@@ -249,10 +272,15 @@ class Deserializer {
 
   @pragma('vm:prefer-inline')
   List<Object?> _decodeArray(int length) {
+    if (length == 0) {
+      return const [];
+    }
+
     final list = List<Object?>.filled(length, null);
     for (var i = 0; i < length; i++) {
       list[i] = decode();
     }
+
     return list;
   }
 

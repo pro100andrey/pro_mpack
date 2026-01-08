@@ -3,12 +3,12 @@ import 'dart:typed_data';
 import 'package:benchmark_harness/benchmark_harness.dart';
 import 'package:pro_mpack/pro_mpack.dart';
 
+import 'utils/custom.dart';
 import 'utils/data.dart';
+import 'utils/models.dart';
 
 class DeserializerBenchmark extends BenchmarkBase {
-  DeserializerBenchmark(this.iterations) : super('mpack - deserialize');
-
-  final int iterations;
+  DeserializerBenchmark() : super('mpack - deserialize');
 
   late final Uint8List bytes;
   @override
@@ -18,7 +18,7 @@ class DeserializerBenchmark extends BenchmarkBase {
 
   @override
   void run() {
-    for (var i = 0; i < iterations; i++) {
+    for (var i = 0; i < 1000; i++) {
       final _ = deserialize(bytes);
     }
   }
@@ -27,6 +27,27 @@ class DeserializerBenchmark extends BenchmarkBase {
   void exercise() => run();
 }
 
+class DeserializerModelsBenchmark extends BenchmarkBase {
+  DeserializerModelsBenchmark() : super('mpack - deserialize models');
+
+  late final Uint8List bytes;
+  @override
+  void setup() {
+    bytes = user.encode(codec: codec);
+  }
+
+  @override
+  void run() {
+    for (var i = 0; i < 1000; i++) {
+      final _ = bytes.decode<User>(codec: codec);
+    }
+  }
+
+  @override
+  void exercise() => run();
+}
+
 void main() {
-  DeserializerBenchmark(1000).report();
+  DeserializerBenchmark().report();
+  DeserializerModelsBenchmark().report();
 }

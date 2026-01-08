@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'models.dart';
+
 final object = {
   'type': 'User',
   'id': 1,
@@ -39,3 +41,31 @@ final object = {
     3: 'Street 152',
   },
 };
+
+
+final user = User(
+  id: 1,
+  name: 'Alice',
+  age: 30,
+  email: 'alice@example.com',
+  created: DateTime.utc(3000, 1, 1, 12, 32, 5, 999, 999),
+  updated: DateTime.utc(1969, 12, 31, 23, 59, 59, 999, 999),
+  data: .fromList(List.generate(100, (index) => index)),
+  addresses: [
+    const Address(
+      street: '123 Main St',
+      city: 'New York',
+      zipCode: 10001,
+    ),
+    const Address(
+      street: '456 Oak Ave',
+      city: 'Los Angeles',
+      zipCode: 90001,
+    ),
+    const Address(
+      street: '789 Pine Rd',
+      city: 'Chicago',
+      zipCode: 60601,
+    ),
+  ],
+);

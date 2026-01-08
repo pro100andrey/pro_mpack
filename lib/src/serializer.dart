@@ -174,12 +174,12 @@ class Serializer {
   //
   // ignore: avoid_positional_boolean_parameters
   void writeBool(bool value) {
-    _writer.writeUint8(value ? formatTrue : formatFalse);
+    _writer.writeUint8(value ? fTrue : fFalse);
   }
 
   @pragma('vm:prefer-inline')
   void writeNull() {
-    _writer.writeUint8(formatNil);
+    _writer.writeUint8(fNil);
   }
 
   @pragma('vm:prefer-inline')
@@ -190,23 +190,23 @@ class Serializer {
   @pragma('vm:prefer-inline')
   void writeNegativeInt(int value) {
     switch (value) {
-      case >= limitNegativeInt5:
-        _writer.writeInt8(value); // negative fixint
-      case >= limitNegativeInt8:
+      case >= limitNegFixInt:
+        _writer.writeInt8(value); // one-byte negative fixint: 111xxxxx
+      case >= limitNegInt8:
         _writer
-          ..writeUint8(formatInt8)
+          ..writeUint8(fInt8)
           ..writeInt8(value);
-      case >= limitNegativeInt16:
+      case >= limitNegInt16:
         _writer
-          ..writeUint8(formatInt16)
+          ..writeUint8(fInt16)
           ..writeInt16(value);
-      case >= limitNegativeInt32:
+      case >= limitNegInt32:
         _writer
-          ..writeUint8(formatInt32)
+          ..writeUint8(fInt32)
           ..writeInt32(value);
       default:
         _writer
-          ..writeUint8(formatInt64)
+          ..writeUint8(fInt64)
           ..writeInt64(value);
     }
   }
@@ -218,19 +218,19 @@ class Serializer {
         _writer.writeUint8(value); // positive fixint
       case <= limitUint8:
         _writer
-          ..writeUint8(formatUint8)
+          ..writeUint8(fUint8)
           ..writeUint8(value);
       case <= limitUint16:
         _writer
-          ..writeUint8(formatUint16)
+          ..writeUint8(fUint16)
           ..writeUint16(value);
       case <= limitUint32:
         _writer
-          ..writeUint8(formatUint32)
+          ..writeUint8(fUint32)
           ..writeUint32(value);
       default:
         _writer
-          ..writeUint8(formatUint64)
+          ..writeUint8(fUint64)
           ..writeUint64(value);
     }
   }
@@ -238,14 +238,14 @@ class Serializer {
   @pragma('vm:prefer-inline')
   void writeFloat(Float value) {
     _writer
-      ..writeUint8(formatFloat32)
+      ..writeUint8(fFloat32)
       ..writeFloat32(value.value);
   }
 
   @pragma('vm:prefer-inline')
   void writeDouble(double value) {
     _writer
-      ..writeUint8(formatFloat64)
+      ..writeUint8(fFloat64)
       ..writeFloat64(value);
   }
 
@@ -255,18 +255,18 @@ class Serializer {
 
     switch (length) {
       case <= 31:
-        _writer.writeUint8(formatFixStrPrefix | length);
+        _writer.writeUint8(fFixStrPrefix | length);
       case <= limitUint8:
         _writer
-          ..writeUint8(formatStr8)
+          ..writeUint8(fStr8)
           ..writeUint8(length);
       case <= limitUint16:
         _writer
-          ..writeUint8(formatStr16)
+          ..writeUint8(fStr16)
           ..writeUint16(length);
       case <= limitUint32:
         _writer
-          ..writeUint8(formatStr32)
+          ..writeUint8(fStr32)
           ..writeUint32(length);
       default:
         throw MessagePackError(
@@ -278,21 +278,21 @@ class Serializer {
   }
 
   @pragma('vm:prefer-inline')
-  void writeBinary(Uint8List buffer) {
-    final length = buffer.length;
+  void writeBinary(Uint8List bytes) {
+    final length = bytes.length;
 
     switch (length) {
       case <= limitUint8:
         _writer
-          ..writeUint8(formatBin8)
+          ..writeUint8(fBin8)
           ..writeUint8(length);
       case <= limitUint16:
         _writer
-          ..writeUint8(formatBin16)
+          ..writeUint8(fBin16)
           ..writeUint16(length);
       case <= limitUint32:
         _writer
-          ..writeUint8(formatBin32)
+          ..writeUint8(fBin32)
           ..writeUint32(length);
       default:
         throw MessagePackError(
@@ -300,7 +300,7 @@ class Serializer {
         );
     }
 
-    _writer.writeBytes(buffer);
+    _writer.writeBytes(bytes);
   }
 
   @pragma('vm:prefer-inline')
@@ -309,14 +309,14 @@ class Serializer {
 
     switch (length) {
       case <= 15:
-        _writer.writeUint8(formatFixArrayPrefix | length);
+        _writer.writeUint8(fFixArrayPrefix | length);
       case <= limitUint16:
         _writer
-          ..writeUint8(formatArray16)
+          ..writeUint8(fArray16)
           ..writeUint16(length);
       case <= limitUint32:
         _writer
-          ..writeUint8(formatArray32)
+          ..writeUint8(fArray32)
           ..writeUint32(length);
       default:
         throw MessagePackError(
@@ -344,14 +344,14 @@ class Serializer {
 
     switch (length) {
       case <= 15:
-        _writer.writeUint8(formatFixMapPrefix | length);
+        _writer.writeUint8(fFixMapPrefix | length);
       case <= limitUint16:
         _writer
-          ..writeUint8(formatMap16)
+          ..writeUint8(fMap16)
           ..writeUint16(length);
       case <= limitUint32:
         _writer
-          ..writeUint8(formatMap32)
+          ..writeUint8(fMap32)
           ..writeUint32(length);
       default:
         throw MessagePackError(
@@ -368,8 +368,9 @@ class Serializer {
   @pragma('vm:prefer-inline')
   void writeTimestamp(DateTime value) {
     final micro = (value.isUtc ? value : value.toUtc()).microsecondsSinceEpoch;
-    final sec = (micro / 1000000).floor();
-    final nano = ((micro % 1000000 + 1000000) % 1000000) * 1000;
+    const million = 1_000_000;
+    final sec = (micro / million).floor();
+    final nano = ((micro % million + million) % million) * 1_000;
 
     if ((sec >> 34) == 0) {
       // 32-bit (secs) or 64-bit (30-bit nsec | 34-bit secs)
@@ -378,7 +379,7 @@ class Serializer {
       // 1970 ... 2106 and no nanoseconds
       if (nano == 0 && sec >= 0 && sec <= limitUint32) {
         _writer
-          ..writeUint8(formatFixExt4)
+          ..writeUint8(fFixExt4)
           ..writeInt8(extTypeTimestamp)
           ..writeUint32(sec);
         return;
@@ -386,14 +387,14 @@ class Serializer {
       // Timestamp 64
       // 1970 ... ~2514 with nanoseconds
       _writer
-        ..writeUint8(formatFixExt8)
+        ..writeUint8(fFixExt8)
         ..writeInt8(extTypeTimestamp)
         ..writeInt64(data64);
     } else {
       // Timestamp 96
       // Before 1970 or after ~2514
       _writer
-        ..writeUint8(formatExt8)
+        ..writeUint8(fExt8)
         ..writeUint8(12) // length
         ..writeInt8(extTypeTimestamp)
         ..writeUint32(nano)
@@ -422,26 +423,26 @@ class Serializer {
 
       switch (length) {
         case 1:
-          _writer.writeUint8(formatFixExt1);
+          _writer.writeUint8(fFixExt1);
         case 2:
-          _writer.writeUint8(formatFixExt2);
+          _writer.writeUint8(fFixExt2);
         case 4:
-          _writer.writeUint8(formatFixExt4);
+          _writer.writeUint8(fFixExt4);
         case 8:
-          _writer.writeUint8(formatFixExt8);
+          _writer.writeUint8(fFixExt8);
         case 16:
-          _writer.writeUint8(formatFixExt16);
+          _writer.writeUint8(fFixExt16);
         case <= limitUint8:
           _writer
-            ..writeUint8(formatExt8) // ext8
+            ..writeUint8(fExt8) // ext8
             ..writeUint8(length);
         case <= limitUint16:
           _writer
-            ..writeUint8(formatExt16) // ext16
+            ..writeUint8(fExt16) // ext16
             ..writeUint16(length);
         case <= limitUint32:
           _writer
-            ..writeUint8(formatExt32) // ext32
+            ..writeUint8(fExt32) // ext32
             ..writeUint32(length);
         case _:
           throw MessagePackError('Size must be at most $limitUint32');
