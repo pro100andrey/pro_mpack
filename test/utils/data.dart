@@ -42,7 +42,6 @@ final object = {
   },
 };
 
-
 final user = User(
   id: 1,
   name: 'Alice',
