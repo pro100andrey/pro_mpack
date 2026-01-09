@@ -1,5 +1,6 @@
 // Mask constants
 
+import 'dart:collection';
 import 'dart:typed_data';
 
 import 'package:pro_binary/pro_binary.dart';
@@ -114,18 +115,16 @@ class Deserializer {
   Object? decode() {
     final u = _reader.readUint8();
 
-    if (u <= limitInt8) {
-      // Positive fixint (0x00 - 0x7f): single-byte positive integer
-      return u;
-    }
-
-    if (u >= fNegFixIntPrefix) {
-      // Negative fixint (0xe0 - 0xff): single-byte negative integer
-      return u - 256;
-    }
-
     // Formats
     switch (u) {
+      case <= limitInt8:
+        // Positive fixint (0x00 - 0x7f): single-byte positive integer
+        return u;
+
+      case >= fNegFixIntPrefix:
+        // Negative fixint (0xe0 - 0xff): single-byte negative integer
+        return u - 256;
+
       // Fixstr (0xa0 - 0xbf): string with length up to 31 bytes
       case >= fFixStrPrefix && <= fFixStrEnd:
         return _reader.readString(u & fFixStrDataMask);
@@ -259,12 +258,11 @@ class Deserializer {
       return const {};
     }
 
-    final map = <Object?, Object?>{};
+    final map = HashMap<Object?, Object?>();
 
     for (var i = 0; i < length; i++) {
       final key = decode();
-      final value = decode();
-      map[key] = value;
+      map[key] = decode();
     }
 
     return map;
@@ -276,57 +274,45 @@ class Deserializer {
       return const [];
     }
 
-    final list = List<Object?>.filled(length, null);
+    final result = List<Object?>.filled(length, null);
     for (var i = 0; i < length; i++) {
-      list[i] = decode();
+      result[i] = decode();
     }
 
-    return list;
+    return result;
   }
 
   @pragma('vm:prefer-inline')
   Object? _readExt(int length) {
     final extType = _reader.readInt8();
-    final data = _reader.readBytes(length);
 
     if (extType == extTypeTimestamp) {
-      return _decodeTimestamp(data);
+      return _decodeTimestamp(length);
     }
 
+    final data = _reader.readBytes(length);
     return _extDecoder?.decodeObject(extType, data);
   }
 
   @pragma('vm:prefer-inline')
-  DateTime _decodeTimestamp(Uint8List data) {
-    final view = ByteData.view(
-      data.buffer,
-      data.offsetInBytes,
-      data.lengthInBytes,
-    );
-    switch (data.length) {
+  DateTime _decodeTimestamp(int length) {
+    switch (length) {
       case 4:
-        final seconds = view.getUint32(0);
-        return DateTime.fromMillisecondsSinceEpoch(
-          seconds * 1000,
-          isUtc: true,
-        );
+        final seconds = _reader.readUint32();
+        return DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
       case 8:
-        final data64 = view.getUint64(0);
+        final data64 = _reader.readUint64();
         final nanoSeconds = (data64 >> 34) & 0x3FFFFFFF;
         final seconds = data64 & 0x3FFFFFFFF;
-        return DateTime.fromMillisecondsSinceEpoch(
-          seconds * 1000,
-          isUtc: true,
-        ).add(Duration(microseconds: nanoSeconds ~/ 1000));
+        final microseconds = seconds * 1000000 + nanoSeconds ~/ 1000;
+        return DateTime.fromMicrosecondsSinceEpoch(microseconds, isUtc: true);
       case 12:
-        final nanoSeconds = view.getUint32(0);
-        final seconds = view.getInt64(4);
-        return DateTime.fromMillisecondsSinceEpoch(
-          seconds * 1000,
-          isUtc: true,
-        ).add(Duration(microseconds: nanoSeconds ~/ 1000));
+        final nanoSeconds = _reader.readUint32();
+        final seconds = _reader.readInt64();
+        final microseconds = seconds * 1000000 + nanoSeconds ~/ 1000;
+        return DateTime.fromMicrosecondsSinceEpoch(microseconds, isUtc: true);
       default:
-        throw MessagePackError('Invalid timestamp length: ${data.length}');
+        throw MessagePackError('Invalid timestamp length: $length');
     }
   }
 }

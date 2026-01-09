@@ -88,8 +88,10 @@ final modelSubRegistry = MessagePackSubRegistry()
       subId: 2,
       encoder: (user, reg) => reg.packAll(
         [
+          user.id,
           user.name,
           user.age,
+          user.email,
           user.created,
           user.updated,
           user.addresses,

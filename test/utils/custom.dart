@@ -39,6 +39,7 @@ final modelSubRegistry = MessagePackSubRegistry()
           user.updated,
           user.data,
           user.addresses,
+          user.numbers,
         ],
       ),
       decoder: (data, reg) {
@@ -51,7 +52,8 @@ final modelSubRegistry = MessagePackSubRegistry()
           created as DateTime,
           updated as DateTime,
           d as Uint8List,
-          adds as List,
+          addresses as List,
+          numbers as List,
         ] = fields;
 
         return User(
@@ -62,7 +64,8 @@ final modelSubRegistry = MessagePackSubRegistry()
           created: created,
           updated: updated,
           data: d,
-          addresses: adds.cast(),
+          addresses: addresses.cast(),
+          numbers: numbers.cast(),
         );
       },
     )

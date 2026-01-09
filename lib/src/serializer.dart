@@ -366,43 +366,6 @@ class Serializer {
   }
 
   @pragma('vm:prefer-inline')
-  void writeTimestamp(DateTime value) {
-    final micro = (value.isUtc ? value : value.toUtc()).microsecondsSinceEpoch;
-    const million = 1_000_000;
-    final sec = (micro / million).floor();
-    final nano = ((micro % million + million) % million) * 1_000;
-
-    if ((sec >> 34) == 0) {
-      // 32-bit (secs) or 64-bit (30-bit nsec | 34-bit secs)
-      final data64 = (nano << 34) | sec;
-      // Timestamp 32
-      // 1970 ... 2106 and no nanoseconds
-      if (nano == 0 && sec >= 0 && sec <= limitUint32) {
-        _writer
-          ..writeUint8(fFixExt4)
-          ..writeInt8(extTypeTimestamp)
-          ..writeUint32(sec);
-        return;
-      }
-      // Timestamp 64
-      // 1970 ... ~2514 with nanoseconds
-      _writer
-        ..writeUint8(fFixExt8)
-        ..writeInt8(extTypeTimestamp)
-        ..writeInt64(data64);
-    } else {
-      // Timestamp 96
-      // Before 1970 or after ~2514
-      _writer
-        ..writeUint8(fExt8)
-        ..writeUint8(12) // length
-        ..writeInt8(extTypeTimestamp)
-        ..writeUint32(nano)
-        ..writeInt64(sec);
-    }
-  }
-
-  @pragma('vm:prefer-inline')
   bool writeExt(Object? object) {
     final type = _extEncoder?.extTypeForObject(object);
 
@@ -456,6 +419,43 @@ class Serializer {
     }
 
     return false;
+  }
+
+  @pragma('vm:prefer-inline')
+  void writeTimestamp(DateTime value) {
+    final micro = (value.isUtc ? value : value.toUtc()).microsecondsSinceEpoch;
+    const million = 1_000_000;
+    final sec = (micro / million).floor();
+    final nano = ((micro % million + million) % million) * 1_000;
+
+    if ((sec >> 34) == 0) {
+      // 32-bit (secs) or 64-bit (30-bit nsec | 34-bit secs)
+      final data64 = (nano << 34) | sec;
+      // Timestamp 32
+      // 1970 ... 2106 and no nanoseconds
+      if (nano == 0 && sec >= 0 && sec <= limitUint32) {
+        _writer
+          ..writeUint8(fFixExt4)
+          ..writeInt8(extTypeTimestamp)
+          ..writeUint32(sec);
+        return;
+      }
+      // Timestamp 64
+      // 1970 ... ~2514 with nanoseconds
+      _writer
+        ..writeUint8(fFixExt8)
+        ..writeInt8(extTypeTimestamp)
+        ..writeInt64(data64);
+    } else {
+      // Timestamp 96
+      // Before 1970 or after ~2514
+      _writer
+        ..writeUint8(fExt8)
+        ..writeUint8(12) // length
+        ..writeInt8(extTypeTimestamp)
+        ..writeUint32(nano)
+        ..writeInt64(sec);
+    }
   }
 
   /// Returns the serialized bytes as a [Uint8List] and resets the internal

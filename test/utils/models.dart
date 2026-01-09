@@ -25,6 +25,7 @@ class User {
     required this.updated,
     required this.data,
     required this.addresses,
+    required this.numbers,
   });
 
   final int id;
@@ -35,11 +36,13 @@ class User {
   final DateTime updated;
   final Uint8List data;
   final List<Address> addresses;
+  final List<int> numbers;
 
   @override
   String toString() =>
       'User(id: $id, name: $name, age: $age, email: $email, created: $created, '
-      'updated: $updated, data length: ${data.length}, addresses: $addresses)';
+      'updated: $updated, data length: ${data.length}, addresses: $addresses, '
+      'numbers: $numbers)';
 }
 
 class Product {

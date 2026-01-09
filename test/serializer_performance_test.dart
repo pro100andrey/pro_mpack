@@ -29,7 +29,7 @@ class SerializerModelsBenchmark extends BenchmarkBase {
   void run() {
     for (var i = 0; i < 1000; i++) {
       final encoded = user.encode(codec: codec);
-      if (encoded.length != 251) {
+      if (encoded.length != 263) {
         throw Exception('Invalid encoded length: ${encoded.length}');
       }
     }

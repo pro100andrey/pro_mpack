@@ -84,10 +84,10 @@ const fFixStrDataMask = 0x1f; // 31
 const fFixCountMask = 0x0f;
 
 // Value limits
+const limitInt8 = 0x7f; // 127
+const limitUint8 = 0xff; // 255
 const limitUint32 = 0xffffffff; // 4294967295
 const limitUint16 = 0xffff; // 65535
-const limitUint8 = 0xff; // 255
-const limitInt8 = 0x7f; // 127
 const limitNegFixInt = -0x20; // -32
 const limitNegInt8 = -0x80; // -128
 const limitNegInt16 = -0x8000; // -32768
