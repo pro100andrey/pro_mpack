@@ -61,14 +61,21 @@ class Deserializer {
   /// [extDecoder]: Optional decoder for custom extension types. When
   /// provided, extension types (other than the built-in timestamp type -1)
   /// will be decoded using this decoder.
+  ///
+  /// [preserveMapOrder]: If `true`, maps will preserve the insertion order
+  /// of their key-value pairs. Defaults to `false`, which uses a standard
+  /// `HashMap` that does not guarantee order.
   Deserializer(
     Uint8List buffer, {
     ExtDecoder? extDecoder,
+    bool? preserveMapOrder,
   }) : _reader = BinaryReader(buffer),
-       _extDecoder = extDecoder;
+       _extDecoder = extDecoder,
+       _preserveMapOrder = preserveMapOrder ?? false;
 
   final BinaryReader _reader;
   final ExtDecoder? _extDecoder;
+  final bool _preserveMapOrder;
 
   /// Returns `true` if there are unread bytes remaining in the buffer.
   ///
@@ -233,6 +240,7 @@ class Deserializer {
       // array32 (0xdd): array with length up to 4294967295 elements
       case fArray32:
         return _decodeArray(_reader.readUint32());
+
       // map16 (0xde): map with length up to 65535 key-value pairs
       case fMap16:
         return _decodeMap(_reader.readUint16());
@@ -258,7 +266,9 @@ class Deserializer {
       return const {};
     }
 
-    final map = HashMap<Object?, Object?>();
+    final map = _preserveMapOrder
+        ? <Object?, Object?>{}
+        : HashMap<Object?, Object?>();
 
     for (var i = 0; i < length; i++) {
       final key = decode();

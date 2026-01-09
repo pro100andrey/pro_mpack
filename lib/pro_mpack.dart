@@ -48,8 +48,13 @@ Uint8List serializeAll(
 Object? deserialize(
   Uint8List buffer, {
   ExtDecoder? extDecoder,
+  bool? preserveMapOrder,
 }) {
-  final d = Deserializer(buffer, extDecoder: extDecoder);
+  final d = Deserializer(
+    buffer,
+    extDecoder: extDecoder,
+    preserveMapOrder: preserveMapOrder,
+  );
 
   return d.decode();
 }
@@ -57,8 +62,13 @@ Object? deserialize(
 List<Object?> deserializeAll(
   Uint8List buffer, {
   ExtDecoder? extDecoder,
+  bool? preserveMapOrder,
 }) {
-  final d = Deserializer(buffer, extDecoder: extDecoder);
+  final d = Deserializer(
+    buffer,
+    extDecoder: extDecoder,
+    preserveMapOrder: preserveMapOrder,
+  );
 
   final results = <Object?>[];
   while (d.hasBytesAvailable) {
