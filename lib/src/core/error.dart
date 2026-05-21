@@ -20,16 +20,11 @@ class MessagePackError extends Error {
   /// Creates a [MessagePackError] with an optional [message].
   ///
   /// [message]: A description of what went wrong during the operation.
-  MessagePackError([this.message]);
+  MessagePackError(this.message);
 
   /// The error message.
-  final String? message;
+  final String message;
 
   @override
-  String toString() {
-    if (message != null) {
-      return 'MessagePackError: $message';
-    }
-    return 'MessagePackError';
-  }
+  String toString() => 'MessagePackError: $message';
 }
