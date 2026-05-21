@@ -3,14 +3,13 @@ library;
 
 import 'dart:typed_data';
 
-import 'src/deserializer.dart';
+import 'src/core/deserializer.dart';
+import 'src/core/serializer.dart';
 import 'src/message_pack.dart';
-import 'src/serializer.dart';
 
-export 'src/deserializer.dart';
-export 'src/error.dart';
-
-export 'src/serializer.dart';
+export 'src/core/deserializer.dart';
+export 'src/core/error.dart';
+export 'src/core/serializer.dart';
 
 /// Default MessagePack instance for quick access.
 final msgpack = MessagePack();

@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'deserializer.dart';
-import 'serializer.dart';
+import 'core/deserializer.dart';
+import 'core/serializer.dart';
 
 /// Context for MessagePack serialization and deserialization.
 ///
@@ -110,6 +110,7 @@ class MessagePack extends Codec<Object?, Uint8List>
         }
         final subId = data[0];
         final payload = Uint8List.sublistView(data, 1);
+
         return group._decode(subId, payload, context);
       },
     );
@@ -185,6 +186,7 @@ class MessagePack extends Codec<Object?, Uint8List>
     if (object == null) {
       return null;
     }
+    
     final type = object.runtimeType;
 
     final cached = _extensionsMap[type];
@@ -212,6 +214,7 @@ class MessagePack extends Codec<Object?, Uint8List>
     if (typeId == null) {
       throw Exception('No encoder for ${object.runtimeType}');
     }
+
     return _decoderMap[typeId]!.encode(object, context as MessagePackContext);
   }
 
@@ -222,6 +225,7 @@ class MessagePack extends Codec<Object?, Uint8List>
     if (ext == null) {
       throw Exception('No decoder for extension $extType');
     }
+
     return ext.decode(data, context as MessagePackContext);
   }
 }
@@ -242,13 +246,14 @@ class _MessagePackDecoder extends Converter<Uint8List, Object?> {
   Object? convert(Uint8List input) => _mpack.unpack(input);
 }
 
+typedef _Decoders = Map<int, Object? Function(Uint8List, MessagePackContext)>;
+typedef _Encoders = Map<int, Uint8List Function(Object?, MessagePackContext)>;
+
 /// A builder for grouping multiple types under a single extension ID.
 class MessagePackGroup {
   final Map<Type, int> _typeToId = {};
-  final Map<int, Object? Function(Uint8List, MessagePackContext)> _decoders =
-      {};
-  final Map<int, Uint8List Function(Object?, MessagePackContext)> _encoders =
-      {};
+  final _Decoders _decoders = {};
+  final _Encoders _encoders = {};
 
   /// Adds a subtype to the group.
   void add<T>({
@@ -266,6 +271,7 @@ class MessagePackGroup {
     if (id == null) {
       throw Exception('Subtype ${value.runtimeType} not registered');
     }
+
     return (id, _encoders[id]!(value, context));
   }
 
@@ -274,7 +280,8 @@ class MessagePackGroup {
     if (decoder == null) {
       throw Exception('Unknown subId $id');
     }
-    return decoder(data, context) ;
+
+    return decoder(data, context);
   }
 }
 
