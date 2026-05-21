@@ -9,7 +9,7 @@ import 'src/serializer.dart';
 
 export 'src/deserializer.dart';
 export 'src/error.dart';
-export 'src/message_pack.dart';
+
 export 'src/serializer.dart';
 
 /// Default MessagePack instance for quick access.

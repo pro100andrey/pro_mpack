@@ -1,11 +1,29 @@
 // Disable warnings for print statements in this example
 // ignore_for_file: avoid_print
 
-import 'dart:typed_data';
-
-import 'package:pro_mpack/pro_mpack.dart';
+import 'package:pro_mpack/message_pack.dart';
 
 void main() {
+
+  final mpack = MessagePack(
+    extensions: (config) {
+      config
+        ..register<BigInt>(
+          extId: 1,
+          encoder: BigIntMessagePack.encode,
+          decoder: BigIntMessagePack.decode,
+        )
+        // Declarative registration of models group
+        ..registerGroup(
+          extId: 2,
+          builder: (group) => group
+            ..userCodec()
+            ..addressCodec()
+            ..productCodec(),
+        );
+    },
+  );
+
   final user = User(
     id: 1,
     name: 'Alice',
@@ -31,38 +49,7 @@ void main() {
   print('Decoded User: $decodedUser');
   print('Bytes: ${userBytes.length}');
 
-  print('\n=== Imperative API ===');
-  final mpack2 = MessagePack()
-    ..register<BigInt>(
-      extId: 1,
-      encoder: (val, ctx) => ctx.pack(val.toString()),
-      decoder: (data, ctx) => BigInt.parse(ctx.unpack<String>(data)!),
-    );
-
-  final bigInt = BigInt.parse('123456789012345678901234567890');
-  final bigIntBytes = mpack2.pack(bigInt);
-  print('Decoded BigInt: ${mpack2.unpack<BigInt>(bigIntBytes)}');
 }
-
-/// Create a MessagePack instance with custom extensions.
-final mpack = MessagePack(
-  extensions: (config) {
-    config
-      ..register<BigInt>(
-        extId: 1,
-        encoder: BigIntMessagePack.encode,
-        decoder: BigIntMessagePack.decode,
-      )
-      // Declarative registration of models group
-      ..registerGroup(
-        extId: 2,
-        builder: (group) => group
-          ..userCodec()
-          ..addressCodec()
-          ..productCodec(),
-      );
-  },
-);
 
 class Address {
   const Address({

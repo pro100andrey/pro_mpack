@@ -1,4 +1,4 @@
-import 'package:pro_mpack/pro_mpack.dart';
+import 'package:pro_mpack/message_pack.dart';
 import 'package:test/test.dart';
 
 void main() {

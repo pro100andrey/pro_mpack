@@ -1,6 +1,4 @@
-import 'dart:typed_data';
-
-import 'package:pro_mpack/pro_mpack.dart';
+import 'package:pro_mpack/message_pack.dart';
 
 import 'models.dart';
 
