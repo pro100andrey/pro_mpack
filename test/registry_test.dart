@@ -118,7 +118,7 @@ void main() {
 
       final person = _TestPerson('Alice', 30);
       final packed = registry.pack(person);
-      final unpacked = registry.unpack<_TestPerson>(packed)!;
+      final unpacked = registry.unpack<_TestPerson>(packed);
 
       expect(unpacked.name, person.name);
       expect(unpacked.age, person.age);
@@ -127,7 +127,7 @@ void main() {
     test('packs and unpacks null', () {
       final registry = MessagePackRegistry();
       final packed = registry.pack(null);
-      final unpacked = registry.unpack(packed);
+      final unpacked = registry.unpack<Object?>(packed);
 
       expect(unpacked, isNull);
     });
@@ -135,10 +135,14 @@ void main() {
     test('packs and unpacks standard types', () {
       final registry = MessagePackRegistry();
 
-      expect(registry.unpack(registry.pack(42)), 42);
-      expect(registry.unpack(registry.pack('hello')), 'hello');
-      expect(registry.unpack(registry.pack(true)), true);
-      expect(registry.unpack(registry.pack([1, 2, 3])), [1, 2, 3]);
+      expect(registry.unpack<int>(registry.pack(42)), 42);
+      expect(registry.unpack<String>(registry.pack('hello')), 'hello');
+      expect(registry.unpack<bool>(registry.pack(true)), true);
+      expect(registry.unpack<List<dynamic>>(registry.pack([1, 2, 3])), [
+        1,
+        2,
+        3,
+      ]);
     });
   });
 
@@ -348,7 +352,7 @@ void main() {
       );
 
       final packed = registry.pack(person);
-      final unpacked = registry.unpack<_TestPersonWithAddress>(packed)!;
+      final unpacked = registry.unpack<_TestPersonWithAddress>(packed);
 
       expect(unpacked.name, 'Alice');
       expect(unpacked.address.street, 'Main St');
@@ -358,12 +362,12 @@ void main() {
 
   group('MessagePackSubRegistry', () {
     test('creates empty sub-registry', () {
-      final subRegistry = MessagePackSubRegistry<_TestBase>();
+      final subRegistry = MessagePackSubRegistry();
       expect(subRegistry, isA<MessagePackSubRegistry>());
     });
 
     test('adds subtype to registry', () {
-      final subRegistry = MessagePackSubRegistry<_TestBase>();
+      final subRegistry = MessagePackSubRegistry();
       final result = subRegistry.add<_TestDerived1>(
         subId: 1,
         encoder: (value, reg) => Uint8List.fromList([value.value]),
@@ -374,7 +378,7 @@ void main() {
     });
 
     test('throws for negative subId', () {
-      final subRegistry = MessagePackSubRegistry<_TestBase>();
+      final subRegistry = MessagePackSubRegistry();
       expect(
         () => subRegistry.add<_TestDerived1>(
           subId: -1,
@@ -386,7 +390,7 @@ void main() {
     });
 
     test('allows method chaining', () {
-      final subRegistry = MessagePackSubRegistry<_TestBase>();
+      final subRegistry = MessagePackSubRegistry();
       final result = subRegistry
           .add<_TestDerived1>(
             subId: 1,
@@ -406,7 +410,7 @@ void main() {
   group('MessagePackRegistry.registerSub', () {
     test('registers sub-registry', () {
       final registry = MessagePackRegistry();
-      final subRegistry = MessagePackSubRegistry<_TestBase>()
+      final subRegistry = MessagePackSubRegistry()
           .add<_TestDerived1>(
             subId: 1,
             encoder: (value, reg) => Uint8List.fromList([value.value]),
@@ -424,7 +428,7 @@ void main() {
 
     test('packs and unpacks derived type 1', () {
       final registry = MessagePackRegistry();
-      final subRegistry = MessagePackSubRegistry<_TestBase>()
+      final subRegistry = MessagePackSubRegistry()
           .add<_TestDerived1>(
             subId: 1,
             encoder: (value, reg) => Uint8List.fromList([value.value]),
@@ -440,14 +444,14 @@ void main() {
 
       final obj = _TestDerived1(42);
       final packed = registry.pack<_TestBase>(obj);
-      final unpacked = registry.unpack<_TestBase>(packed)! as _TestDerived1;
+      final unpacked = registry.unpack<_TestBase>(packed) as _TestDerived1;
 
       expect(unpacked.value, 42);
     });
 
     test('packs and unpacks derived type 2', () {
       final registry = MessagePackRegistry();
-      final subRegistry = MessagePackSubRegistry<_TestBase>()
+      final subRegistry = MessagePackSubRegistry()
           .add<_TestDerived1>(
             subId: 1,
             encoder: (value, reg) => Uint8List.fromList([value.value]),
@@ -463,14 +467,14 @@ void main() {
 
       final obj = _TestDerived2(99);
       final packed = registry.pack<_TestBase>(obj);
-      final unpacked = registry.unpack<_TestBase>(packed)! as _TestDerived2;
+      final unpacked = registry.unpack<_TestBase>(packed) as _TestDerived2;
 
       expect(unpacked.data, 99);
     });
 
     test('handles small subId optimization', () {
       final registry = MessagePackRegistry();
-      final subRegistry = MessagePackSubRegistry<_TestBase>()
+      final subRegistry = MessagePackSubRegistry()
           .add<_TestDerived1>(
             subId: 50, // < 128, should use single byte optimization
             encoder: (value, reg) => Uint8List.fromList([value.value]),
@@ -481,14 +485,14 @@ void main() {
 
       final obj = _TestDerived1(42);
       final packed = registry.pack<_TestBase>(obj);
-      final unpacked = registry.unpack<_TestBase>(packed)! as _TestDerived1;
+      final unpacked = registry.unpack<_TestBase>(packed) as _TestDerived1;
 
       expect(unpacked.value, 42);
     });
 
     test('handles large subId with varInt encoding', () {
       final registry = MessagePackRegistry();
-      final subRegistry = MessagePackSubRegistry<_TestBase>()
+      final subRegistry = MessagePackSubRegistry()
           .add<_TestDerived1>(
             subId: 200, // >= 128, should use varInt
             encoder: (value, reg) => Uint8List.fromList([value.value]),
@@ -498,16 +502,16 @@ void main() {
       registry.registerSub(100, subRegistry);
 
       final obj = _TestDerived1(42);
-      final packed = registry.pack<_TestBase>(obj);
-      final unpacked = registry.unpack<_TestBase>(packed)! as _TestDerived1;
+      final packed = registry.pack(obj);
+      final unpacked = registry.unpack< _TestDerived1>(packed);
 
       expect(unpacked.value, 42);
     });
 
     test('throws for unregistered subtype', () {
       final registry = MessagePackRegistry();
-      final subRegistry = MessagePackSubRegistry<_TestBase>()
-          .add<_TestDerived1>(
+      final subRegistry = MessagePackSubRegistry()
+          .add(
             subId: 1,
             encoder: (value, reg) => Uint8List.fromList([value.value]),
             decoder: (data, reg) => _TestDerived1(data[0]),
@@ -525,8 +529,8 @@ void main() {
 
     test('throws for unknown subTypeId during decode', () {
       final registry = MessagePackRegistry();
-      final subRegistry = MessagePackSubRegistry<_TestBase>()
-          .add<_TestDerived1>(
+      final subRegistry = MessagePackSubRegistry()
+          .add(
             subId: 1,
             encoder: (value, reg) => Uint8List.fromList([value.value]),
             decoder: (data, reg) => _TestDerived1(data[0]),
@@ -545,7 +549,7 @@ void main() {
       final packed = fakeRegistry.pack(_TestFakeType());
 
       expect(
-        () => registry.unpack(packed),
+        () => registry.unpack< _TestFakeType>(packed),
         throwsA(isA<Exception>()),
       );
     });
@@ -554,7 +558,7 @@ void main() {
   group('MessagePackSubRegistry complex scenarios', () {
     test('encodes and decodes multiple subtypes in list', () {
       final registry = MessagePackRegistry();
-      final subRegistry = MessagePackSubRegistry<_TestBase>()
+      final subRegistry = MessagePackSubRegistry()
           .add<_TestDerived1>(
             subId: 1,
             encoder: (value, reg) => Uint8List.fromList([value.value]),
@@ -587,7 +591,7 @@ void main() {
       final registry = MessagePackRegistry();
 
       // Sub-registry for shapes
-      final shapeRegistry = MessagePackSubRegistry<_TestShape>()
+      final shapeRegistry = MessagePackSubRegistry()
           .add<_TestCircle>(
             subId: 1,
             encoder: (circle, reg) => reg.packAll([circle.radius]),

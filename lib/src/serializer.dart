@@ -304,7 +304,7 @@ class Serializer {
   }
 
   @pragma('vm:prefer-inline')
-  void writeIterable(Iterable iterable) {
+  void writeIterable(Iterable<dynamic> iterable) {
     final length = iterable.length;
 
     switch (length) {
@@ -330,8 +330,6 @@ class Serializer {
         encode(iterable[i]);
       }
     } else {
-      // no allocate lambda for each item
-      // ignore: prefer_foreach
       for (final item in iterable) {
         encode(item);
       }
@@ -339,7 +337,7 @@ class Serializer {
   }
 
   @pragma('vm:prefer-inline')
-  void writeMap(Map dictionary) {
+  void writeMap(Map<dynamic, dynamic> dictionary) {
     final length = dictionary.length;
 
     switch (length) {

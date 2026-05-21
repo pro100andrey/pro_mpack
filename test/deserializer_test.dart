@@ -6,7 +6,6 @@ import 'package:test/test.dart';
 import 'utils/utils.dart';
 
 void main() {
-  // Type system tests
 
   // Nil format
   test('deserializes nil format correctly', () {
@@ -461,7 +460,7 @@ void main() {
   test('deserializes empty array correctly', () {
     final buffer = Uint8List.fromList([0x90 /*fixarray(0)*/]);
     final result = deserialize(buffer);
-    expect(result, []);
+    expect(result, isEmpty);
   });
 
   test('deserializes empty binary correctly', () {
@@ -479,7 +478,7 @@ void main() {
   test('deserializes empty map correctly', () {
     final buffer = Uint8List.fromList([0x80 /*fixmap(0)*/]);
     final result = deserialize(buffer);
-    expect(result, {});
+    expect(result, isEmpty);
   });
 
   // Nested structure tests
@@ -514,7 +513,7 @@ void main() {
     test('deserializes empty buffer', () {
       final buffer = Uint8List.fromList([]);
       final result = deserializeAll(buffer);
-      expect(result, []);
+      expect(result, isEmpty);
     });
 
     test('deserializes single value', () {
@@ -567,7 +566,6 @@ void main() {
       ]);
       final resultArray = deserialize(bufferArray);
       expect(resultArray, [1, 2, 3]);
-      expect(resultArray, isA<List>());
 
       // Both have same values but different representations
       expect(resultAll, equals(resultArray));

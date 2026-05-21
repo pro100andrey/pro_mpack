@@ -166,28 +166,25 @@ void main() {
     test('decodes list', () {
       final data = Uint8List.fromList([0x93, 1, 2, 3]);
       final result = codec.decode(data);
-      expect(result, isA<List>());
       expect(result! as List, [1, 2, 3]);
     });
 
     test('decodes map', () {
       final data = Uint8List.fromList([0x81, 0xa1, 0x61, 1]); // {'a': 1}
       final result = codec.decode(data);
-      expect(result, isA<Map>());
       expect((result! as Map)['a'], 1);
     });
 
     test('decodes empty list', () {
       final data = Uint8List.fromList([0x90]);
       final result = codec.decode(data);
-      expect(result, isA<List>());
+
       expect((result! as List).isEmpty, isTrue);
     });
 
     test('decodes empty map', () {
       final data = Uint8List.fromList([0x80]);
       final result = codec.decode(data);
-      expect(result, isA<Map>());
       expect((result! as Map).isEmpty, isTrue);
     });
   });
@@ -364,21 +361,19 @@ void main() {
   group('MessagePackBinaryX extension', () {
     test('decodes to correct type', () {
       final data = Uint8List.fromList([0xc0]);
-      final result = data.decode();
+      final result = data.decode<Object?>();
       expect(result, isNull);
     });
 
     test('decodes with type parameter', () {
       final encoded = msgpack.encode({'key': 'value'});
-      final result = encoded.decode<Map>();
-      expect(result, isA<Map>());
+      final result = encoded.decode<Map<dynamic, dynamic>>();
       expect(result['key'], 'value');
     });
 
     test('decodes list with type parameter', () {
       final encoded = msgpack.encode([1, 2, 3]);
-      final result = encoded.decode<List>();
-      expect(result, isA<List>());
+      final result = encoded.decode<List<dynamic>>();
       expect(result, [1, 2, 3]);
     });
 
@@ -386,7 +381,7 @@ void main() {
       final registry = MessagePackRegistry();
       final codec = MessagePackCodec(registry: registry);
       final encoded = codec.encode('test');
-      final result = encoded.decode(codec: codec);
+      final result = encoded.decode<String>(codec: codec);
       expect(result, 'test');
     });
   });

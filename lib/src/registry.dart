@@ -189,7 +189,7 @@ class MessagePackRegistry implements ExtEncoder, ExtDecoder {
   /// final data = registry.pack(myCustomObject);
   /// ```
   @pragma('vm:prefer-inline')
-  Uint8List pack<T>(T? value) {
+  Uint8List pack<T>(T value) {
     final s = Serializer(extEncoder: this)..encode(value);
     return s.takeBytes();
   }
@@ -209,9 +209,9 @@ class MessagePackRegistry implements ExtEncoder, ExtDecoder {
   /// final decoded = registry.unpack<MyCustomClass>(data);
   /// ```
   @pragma('vm:prefer-inline')
-  T? unpack<T>(Uint8List data) {
+  T unpack<T>(Uint8List data) {
     final d = Deserializer(data, extDecoder: this);
-    return d.decode() as T?;
+    return d.decode() as T;
   }
 
   /// Finds the extension type ID for the given [object].
@@ -336,7 +336,7 @@ typedef _EncoderMap =
 /// final data = mainRegistry.pack<Animal>(Dog('Rex'));
 /// final animal = mainRegistry.unpack<Animal>(data); // Returns Dog instance
 /// ```
-class MessagePackSubRegistry<Base> {
+class MessagePackSubRegistry {
   final Map<Type, int> _typeToId = {};
 
   final _DecoderMap _decoders = {};
@@ -344,8 +344,8 @@ class MessagePackSubRegistry<Base> {
 
   /// Adds a subtype to this registry.
   ///
-  /// Registers encoding and decoding functions for type [T], which must be
-  /// a subtype of [Base]. Each subtype is identified by a unique [subId]
+  /// Registers encoding and decoding functions for type [T]. Each subtype is 
+  /// identified by a unique [subId]
   /// within this sub-registry.
   ///
   /// [subId] must be a non-negative integer and should be unique among all
@@ -379,7 +379,7 @@ class MessagePackSubRegistry<Base> {
   ///   },
   /// );
   /// ```
-  MessagePackSubRegistry<Base> add<T>({
+  MessagePackSubRegistry add<T>({
     required int subId,
     required Uint8List Function(T value, MessagePackRegistry reg) encoder,
     required T Function(Uint8List data, MessagePackRegistry reg) decoder,
@@ -465,7 +465,7 @@ class MessagePackSubRegistry<Base> {
         );
       }
 
-      return decoderFn(payload, registry) as Base;
+      return decoderFn(payload, registry);
     },
   );
 }

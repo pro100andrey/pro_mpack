@@ -81,7 +81,7 @@ void main() {
 
       registry.register(ext);
       final packed = registry.pack(_TestClass(42));
-      registry.unpack(packed);
+      registry.unpack<_TestClass>(packed);
 
       expect(decoderCalled, isTrue);
       expect(receivedData, isNotNull);
@@ -357,7 +357,7 @@ void main() {
 
       final original = _TestClass(42);
       final packed = registry.pack(original);
-      final unpacked = registry.unpack<_TestClass>(packed)!;
+      final unpacked = registry.unpack<_TestClass>(packed);
 
       expect(unpacked.id, original.id);
     });
@@ -376,7 +376,7 @@ void main() {
 
       final original = _TestNestedClass('test', 999);
       final packed = registry.pack(original);
-      final unpacked = registry.unpack<_TestNestedClass>(packed)!;
+      final unpacked = registry.unpack<_TestNestedClass>(packed);
 
       expect(unpacked.name, original.name);
       expect(unpacked.value, original.value);
@@ -453,7 +453,7 @@ void main() {
       final ext = MessagePackExtension.create<Map<String, int>>(
         typeId: 1,
         encoder: (value, reg) => reg.pack(value),
-        decoder: (data, reg) => reg.unpack<Map>(data)!.cast<String, int>(),
+        decoder: (data, reg) => reg.unpack(data),
       );
 
       expect(ext.canHandle({'a': 1}), isTrue);
@@ -582,7 +582,7 @@ void main() {
         decoder: (data, reg) {
           final id = data[0];
           final innerData = Uint8List.sublistView(data, 1);
-          final inner = reg.unpack<_TestInner>(innerData)!;
+          final inner = reg.unpack<_TestInner>(innerData);
           return _TestOuter(id, inner);
         },
       );
@@ -590,7 +590,7 @@ void main() {
 
       final original = _TestOuter(99, _TestInner(42));
       final packed = registry.pack(original);
-      final unpacked = registry.unpack<_TestOuter>(packed)!;
+      final unpacked = registry.unpack<_TestOuter>(packed);
 
       expect(unpacked.id, 99);
       expect(unpacked.inner.data, 42);
@@ -615,7 +615,7 @@ void main() {
 
       final original = _TestNestedClass('nested', 777);
       final packed = registry.pack(original);
-      final unpacked = registry.unpack<_TestNestedClass>(packed)!;
+      final unpacked = registry.unpack<_TestNestedClass>(packed);
 
       expect(unpacked.name, 'nested');
       expect(unpacked.value, 777);
