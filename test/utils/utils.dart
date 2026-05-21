@@ -4,7 +4,7 @@ import 'package:pro_mpack/pro_mpack.dart';
 
 class CustomExtDecoder with ExtDecoder {
   @override
-  Object? decodeObject(int extType, Uint8List data, ExtDecoder context) =>
+  Object? decodeObject(int extType, Uint8List data) =>
       'Custom ext type $extType with data $data';
 }
 
@@ -24,7 +24,7 @@ class TestExtEncoder with ExtEncoder {
   }
 
   @override
-  Uint8List encodeObject(Object? object, ExtEncoder context) {
+  Uint8List encodeObject(Object? object) {
     if (object is CustomExtension) {
       return object.data;
     }

@@ -13,10 +13,29 @@ import 'error.dart';
 ///  methods.
 abstract mixin class ExtEncoder {
   /// Returns the extension type for a given [object].
+  ///
+  /// This method determines the custom extension type integer that represents
+  /// the given [object]. If the object cannot be encoded as an extension type,
+  /// the method returns `null`.
+  ///
+  /// [object] is the object to be encoded as an extension type.
+  ///
+  /// Returns an integer representing the extension type, or `null` if the
+  /// object cannot be encoded.
   int? extTypeForObject(Object? object);
 
   /// Encodes a given [object] into a Uint8List.
-  Uint8List encodeObject(Object? object, ExtEncoder context);
+  ///
+  /// This method serializes the given [object] into a binary format represented
+  /// by a `Uint8List`. It should be used for objects that can be encoded as
+  /// custom extension types.
+  ///
+  /// [object] is the object to be encoded.
+  ///
+  /// Returns a `Uint8List` representing the encoded object.
+  ///
+  /// Throws an [MessagePackError] if the object cannot be encoded.
+  Uint8List encodeObject(Object? object);
 }
 
 /// A class representing a 32-bit floating-point number.
@@ -353,7 +372,7 @@ class Serializer {
         throw MessagePackError('Type must be in the range of -128 to 127');
       }
 
-      final encoded = _extEncoder?.encodeObject(object, _extEncoder);
+      final encoded = _extEncoder?.encodeObject(object);
 
       if (encoded == null) {
         throw MessagePackError(

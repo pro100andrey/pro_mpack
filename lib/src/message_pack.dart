@@ -1,7 +1,11 @@
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:pro_binary/pro_binary.dart';
+
 import 'core/deserializer.dart';
+import 'core/error.dart';
 import 'core/serializer.dart';
 
 /// Context for MessagePack serialization and deserialization.
@@ -10,6 +14,8 @@ import 'core/serializer.dart';
 /// allowing custom extension encoders and decoders to recursively
 /// process nested data.
 abstract interface class MessagePackContext {
+  const MessagePackContext();
+
   /// Packs a single value into a MessagePack-encoded [Uint8List].
   Uint8List pack(Object? value);
 
@@ -38,17 +44,20 @@ class MessagePack extends Codec<Object?, Uint8List>
   MessagePack({
     void Function(MessagePack)? extensions,
     this.defaultBufferSize = 1024,
-  }) {
+  }) : _extensions = [],
+       _decoderMap = HashMap(),
+       _extensionsMap = HashMap(),
+       _notFoundCache = {} {
     extensions?.call(this);
   }
 
   /// Initial buffer size for serialization.
   final int defaultBufferSize;
 
-  final List<_Extension> _extensions = [];
-  final Map<int, _Extension> _decoderMap = {};
-  final Map<Type, _Extension> _extensionsMap = {};
-  final Set<Type> _notFoundCache = {};
+  final List<_Extension> _extensions;
+  final Map<int, _Extension> _decoderMap;
+  final Map<Type, _Extension> _extensionsMap;
+  final Set<Type> _notFoundCache;
 
   /// Registers a custom extension for type [T].
   ///
@@ -61,7 +70,7 @@ class MessagePack extends Codec<Object?, Uint8List>
     required T Function(Uint8List data, MessagePackContext context) decoder,
   }) {
     if (_decoderMap.containsKey(extId)) {
-      throw Exception('Extension with id $extId already registered');
+      throw MessagePackError('Extension with id $extId already registered');
     }
 
     final ext = _Extension(
@@ -86,59 +95,80 @@ class MessagePack extends Codec<Object?, Uint8List>
     required void Function(MessagePackGroup group) builder,
   }) {
     final group = MessagePackGroup();
+
     builder(group);
 
     register(
       extId: extId,
-      encoder: (value, context) {
-        final (subId, payload) = group._encode(value, context);
-
-        // Fast path for subId < 128
-        if (subId < 128) {
-          final result = Uint8List(payload.length + 1);
-          result[0] = subId;
-          result.setRange(1, result.length, payload);
-          return result;
-        }
-
-        // Support for larger subIds if needed
-        throw UnimplementedError('subId >= 128 not yet supported in groups');
-      },
-      decoder: (data, context) {
-        if (data.isEmpty) {
-          throw Exception('Empty group data');
-        }
-        final subId = data[0];
-        final payload = Uint8List.sublistView(data, 1);
-
-        return group._decode(subId, payload, context);
-      },
+      encoder: (value, context) => _enc(value, context, group),
+      decoder: (data, context) => _dec(data, context, group),
     );
   }
 
   /// Creates and returns a group without registering it immediately.
   /// Useful for imperative style.
-  MessagePackGroup createGroup({required int extId}) {
+  MessagePackGroup createGroup<Base>({required int extId}) {
     final group = MessagePackGroup();
+
     register(
       extId: extId,
-      encoder: (value, context) {
-        final (subId, payload) = group._encode(value, context);
-        if (subId < 128) {
-          final result = Uint8List(payload.length + 1);
-          result[0] = subId;
-          result.setRange(1, result.length, payload);
-          return result;
-        }
-        throw UnimplementedError('subId >= 128 not supported');
-      },
-      decoder: (data, context) {
-        final subId = data[0];
-        final payload = Uint8List.sublistView(data, 1);
-        return group._decode(subId, payload, context);
-      },
+      encoder: (value, context) => _enc(value, context, group),
+      decoder: (data, context) => _dec(data, context, group),
     );
+
     return group;
+  }
+
+  Object? _dec(
+    Uint8List data,
+    MessagePackContext context,
+    MessagePackGroup group,
+  ) {
+    if (data.isEmpty) {
+      throw MessagePackError('Empty group data');
+    }
+
+    final int subId;
+    final Uint8List payload;
+
+    if (data[0] < 128) {
+      subId = data[0];
+      payload = Uint8List.sublistView(data, 1);
+    } else {
+      final reader = BinaryReader(data);
+      subId = reader.readVarUint();
+      payload = reader.readRemainingBytes();
+    }
+
+    return group._decode(subId, payload, context);
+  }
+
+  Uint8List _enc(
+    Object? value,
+    MessagePackContext context,
+    MessagePackGroup group,
+  ) {
+    final (subId, payload) = group._encode(value, context);
+
+    // Fast path for subId < 128
+    if (subId < 128) {
+      final result = Uint8List(payload.length + 1);
+      result[0] = subId;
+      result.setRange(1, result.length, payload);
+
+      return result;
+    }
+
+    // Slow path: use varInt for subId >= 128
+    final writer = BinaryWriterPool.acquire()
+      ..writeVarUint(subId)
+      ..writeBytes(payload);
+
+    final bytes = writer.toBytes();
+
+    BinaryWriterPool.release(writer);
+
+    return bytes;
   }
 
   @override
@@ -186,7 +216,7 @@ class MessagePack extends Codec<Object?, Uint8List>
     if (object == null) {
       return null;
     }
-    
+
     final type = object.runtimeType;
 
     final cached = _extensionsMap[type];
@@ -209,24 +239,24 @@ class MessagePack extends Codec<Object?, Uint8List>
   }
 
   @override
-  Uint8List encodeObject(Object? object, ExtEncoder context) {
+  Uint8List encodeObject(Object? object) {
     final typeId = extTypeForObject(object);
     if (typeId == null) {
       throw Exception('No encoder for ${object.runtimeType}');
     }
 
-    return _decoderMap[typeId]!.encode(object, context as MessagePackContext);
+    return _decoderMap[typeId]!.encode(object, this);
   }
 
   // ExtDecoder implementation
   @override
-  Object? decodeObject(int extType, Uint8List data, ExtDecoder context) {
+  Object? decodeObject(int extType, Uint8List data) {
     final ext = _decoderMap[extType];
     if (ext == null) {
       throw Exception('No decoder for extension $extType');
     }
 
-    return ext.decode(data, context as MessagePackContext);
+    return ext.decode(data, this);
   }
 }
 
@@ -246,24 +276,23 @@ class _MessagePackDecoder extends Converter<Uint8List, Object?> {
   Object? convert(Uint8List input) => _mpack.unpack(input);
 }
 
-typedef _Decoders = Map<int, Object? Function(Uint8List, MessagePackContext)>;
-typedef _Encoders = Map<int, Uint8List Function(Object?, MessagePackContext)>;
-
 /// A builder for grouping multiple types under a single extension ID.
 class MessagePackGroup {
   final Map<Type, int> _typeToId = {};
-  final _Decoders _decoders = {};
-  final _Encoders _encoders = {};
+  final Map<int, Object? Function(Uint8List, MessagePackContext)> _decoders =
+      {};
+  final Map<int, Uint8List Function(Object?, MessagePackContext)> _encoders =
+      {};
 
   /// Adds a subtype to the group.
   void add<T>({
-    required int typeId,
+    required int subId,
     required Uint8List Function(T value, MessagePackContext context) encoder,
     required T Function(Uint8List data, MessagePackContext context) decoder,
   }) {
-    _typeToId[T] = typeId;
-    _encoders[typeId] = (v, ctx) => encoder(v as T, ctx);
-    _decoders[typeId] = (d, ctx) => decoder(d, ctx);
+    _typeToId[T] = subId;
+    _encoders[subId] = (v, ctx) => encoder(v as T, ctx);
+    _decoders[subId] = (d, ctx) => decoder(d, ctx);
   }
 
   (int, Uint8List) _encode(Object? value, MessagePackContext context) {

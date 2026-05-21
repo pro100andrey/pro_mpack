@@ -10,6 +10,7 @@ import 'src/message_pack.dart';
 export 'src/core/deserializer.dart';
 export 'src/core/error.dart';
 export 'src/core/serializer.dart';
+export 'src/message_pack.dart';
 
 /// Default MessagePack instance for quick access.
 final msgpack = MessagePack();

@@ -124,7 +124,7 @@ extension BigIntMessagePack on BigInt {
 
 extension UserMessagePackGroup on MessagePackGroup {
   void userCodec() => add(
-    typeId: 1,
+    subId: 1,
     encoder: (user, ctx) {
       final fields = [
         user.id,
@@ -169,7 +169,7 @@ extension UserMessagePackGroup on MessagePackGroup {
 
 extension AddressMessagePackGroup on MessagePackGroup {
   void addressCodec() => add(
-    typeId: 2,
+    subId: 2,
     encoder: (addr, ctx) {
       final fields = [addr.street, addr.city, addr.zipCode];
 
@@ -191,7 +191,7 @@ extension AddressMessagePackGroup on MessagePackGroup {
 
 extension ProductMessagePackGroup on MessagePackGroup {
   void productCodec() => add(
-    typeId: 3,
+    subId: 3,
     encoder: (product, ctx) {
       final fields = [product.description, product.price, product.title];
       return ctx.packAll(fields);

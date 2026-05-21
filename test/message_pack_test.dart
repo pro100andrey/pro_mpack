@@ -1,4 +1,4 @@
-import 'package:pro_mpack/message_pack.dart';
+import 'package:pro_mpack/pro_mpack.dart';
 import 'package:test/test.dart';
 
 void main() {
@@ -30,7 +30,7 @@ void main() {
 
     test('imperative extensions', () {
       final mpack = MessagePack()
-        ..register<BigInt>(
+        ..register(
           extId: 1,
           encoder: (val, ctx) => ctx.pack(val.toString()),
           decoder: (data, ctx) => BigInt.parse(ctx.unpack<String>(data)!),
@@ -48,7 +48,7 @@ void main() {
             extId: 10,
             builder: (group) {
               group.add<DateTime>(
-                typeId: 1,
+                subId: 1,
                 encoder: (dt, ctx) => ctx.pack(dt.millisecondsSinceEpoch),
                 decoder: (data, ctx) => DateTime.fromMillisecondsSinceEpoch(
                   ctx.unpack<int>(data)!,
@@ -59,7 +59,7 @@ void main() {
         },
       );
 
-      final now = DateTime.now();
+      final now = DateTime.utc(2023);
       final bytes = mpack.pack(now);
       final decoded = mpack.unpack<DateTime>(bytes);
       expect(decoded?.millisecondsSinceEpoch, now.millisecondsSinceEpoch);
@@ -77,6 +77,26 @@ void main() {
       final values = [1, 'two', 3.0];
       final bytes = mpack.packAll(values);
       expect(mpack.unpackAll(bytes), values);
+    });
+
+    test('subId >= 128 (varInt)', () {
+      final mpack = MessagePack(
+        extensions: (config) {
+          config.registerGroup(
+            extId: 5,
+            builder: (group) {
+              group.add<int>(
+                subId: 300,
+                encoder: (v, ctx) => ctx.pack(v),
+                decoder: (d, ctx) => ctx.unpack<int>(d)!,
+              );
+            },
+          );
+        },
+      );
+
+      final bytes = mpack.pack(42);
+      expect(mpack.unpack<int>(bytes), 42);
     });
   });
 }
