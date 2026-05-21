@@ -5,15 +5,11 @@ import 'dart:typed_data';
 
 import 'src/core/deserializer.dart';
 import 'src/core/serializer.dart';
-import 'src/message_pack.dart';
 
 export 'src/core/deserializer.dart';
 export 'src/core/error.dart';
 export 'src/core/serializer.dart';
 export 'src/message_pack.dart';
-
-/// Default MessagePack instance for quick access.
-final msgpack = MessagePack();
 
 /// Serializes [value] to MessagePack format.
 Uint8List serialize(
@@ -21,9 +17,6 @@ Uint8List serialize(
   ExtEncoder? extEncoder,
   int initialBufferSize = 1024,
 }) {
-  if (extEncoder == null) {
-    return msgpack.pack(value);
-  }
   final s = Serializer(
     extEncoder: extEncoder,
     initialBufferSize: initialBufferSize,
@@ -38,9 +31,6 @@ Uint8List serializeAll(
   ExtEncoder? extEncoder,
   int initialBufferSize = 1024,
 }) {
-  if (extEncoder == null) {
-    return msgpack.packAll(values);
-  }
   final s = Serializer(
     extEncoder: extEncoder,
     initialBufferSize: initialBufferSize,
@@ -59,9 +49,6 @@ Object? deserialize(
   ExtDecoder? extDecoder,
   bool? preserveMapOrder,
 }) {
-  if (extDecoder == null && (preserveMapOrder == null || !preserveMapOrder)) {
-    return msgpack.unpack(buffer);
-  }
   final d = Deserializer(
     buffer,
     extDecoder: extDecoder,
@@ -77,9 +64,6 @@ List<Object?> deserializeAll(
   ExtDecoder? extDecoder,
   bool? preserveMapOrder,
 }) {
-  if (extDecoder == null && (preserveMapOrder == null || !preserveMapOrder)) {
-    return msgpack.unpackAll(buffer);
-  }
   final d = Deserializer(
     buffer,
     extDecoder: extDecoder,

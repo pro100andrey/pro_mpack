@@ -4,7 +4,6 @@
 import 'package:pro_mpack/message_pack.dart';
 
 void main() {
-
   final mpack = MessagePack(
     extensions: (config) {
       config
@@ -48,7 +47,6 @@ void main() {
 
   print('Decoded User: $decodedUser');
   print('Bytes: ${userBytes.length}');
-
 }
 
 class Address {
@@ -124,7 +122,7 @@ extension BigIntMessagePack on BigInt {
 
 extension UserMessagePackGroup on MessagePackGroup {
   void userCodec() => add(
-    subId: 1,
+    subId: 100,
     encoder: (user, ctx) {
       final fields = [
         user.id,
@@ -169,9 +167,13 @@ extension UserMessagePackGroup on MessagePackGroup {
 
 extension AddressMessagePackGroup on MessagePackGroup {
   void addressCodec() => add(
-    subId: 2,
+    subId: 200,
     encoder: (addr, ctx) {
-      final fields = [addr.street, addr.city, addr.zipCode];
+      final fields = [
+        addr.street,
+        addr.city,
+        addr.zipCode,
+      ];
 
       return ctx.packAll(fields);
     },
@@ -191,7 +193,7 @@ extension AddressMessagePackGroup on MessagePackGroup {
 
 extension ProductMessagePackGroup on MessagePackGroup {
   void productCodec() => add(
-    subId: 3,
+    subId: 300,
     encoder: (product, ctx) {
       final fields = [product.description, product.price, product.title];
       return ctx.packAll(fields);

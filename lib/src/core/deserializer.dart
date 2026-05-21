@@ -308,18 +308,18 @@ class Deserializer {
     switch (length) {
       case 4:
         final seconds = _reader.readUint32();
-        return DateTime.fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
+        return .fromMillisecondsSinceEpoch(seconds * 1000, isUtc: true);
       case 8:
         final data64 = _reader.readUint64();
         final nanoSeconds = (data64 >> 34) & 0x3FFFFFFF;
         final seconds = data64 & 0x3FFFFFFFF;
         final microseconds = seconds * 1000000 + nanoSeconds ~/ 1000;
-        return DateTime.fromMicrosecondsSinceEpoch(microseconds, isUtc: true);
+        return .fromMicrosecondsSinceEpoch(microseconds, isUtc: true);
       case 12:
         final nanoSeconds = _reader.readUint32();
         final seconds = _reader.readInt64();
         final microseconds = seconds * 1000000 + nanoSeconds ~/ 1000;
-        return DateTime.fromMicrosecondsSinceEpoch(microseconds, isUtc: true);
+        return .fromMicrosecondsSinceEpoch(microseconds, isUtc: true);
       default:
         throw MessagePackError('Invalid timestamp length: $length');
     }

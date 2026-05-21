@@ -4,9 +4,7 @@ import 'dart:typed_data';
 
 import 'package:pro_binary/pro_binary.dart';
 
-import 'core/deserializer.dart';
-import 'core/error.dart';
-import 'core/serializer.dart';
+import '../pro_mpack.dart';
 
 /// Context for MessagePack serialization and deserialization.
 ///
@@ -128,17 +126,9 @@ class MessagePack extends Codec<Object?, Uint8List>
       throw MessagePackError('Empty group data');
     }
 
-    final int subId;
-    final Uint8List payload;
-
-    if (data[0] < 128) {
-      subId = data[0];
-      payload = Uint8List.sublistView(data, 1);
-    } else {
-      final reader = BinaryReader(data);
-      subId = reader.readVarUint();
-      payload = reader.readRemainingBytes();
-    }
+    final reader = BinaryReader(data);
+    final subId = reader.readVarUint();
+    final payload = reader.readRemainingBytes();
 
     return group._decode(subId, payload, context);
   }
@@ -150,58 +140,42 @@ class MessagePack extends Codec<Object?, Uint8List>
   ) {
     final (subId, payload) = group._encode(value, context);
 
-    // Fast path for subId < 128
-    if (subId < 128) {
-      final result = Uint8List(payload.length + 1);
-      result[0] = subId;
-      result.setRange(1, result.length, payload);
-
-      return result;
-    }
-
     // Slow path: use varInt for subId >= 128
     final writer = BinaryWriterPool.acquire()
       ..writeVarUint(subId)
       ..writeBytes(payload);
 
-    final bytes = writer.toBytes();
-
-    BinaryWriterPool.release(writer);
-
-    return bytes;
+    try {
+      return writer.takeBytes();
+    } finally {
+      BinaryWriterPool.release(writer);
+    }
   }
 
   @override
-  Uint8List pack(Object? value) => (Serializer(
+  Uint8List pack(Object? value) =>
+      serialize(value, extEncoder: this, initialBufferSize: defaultBufferSize);
+
+  @override
+  Uint8List packAll(Iterable<Object?> values) => serializeAll(
+    values,
     extEncoder: this,
     initialBufferSize: defaultBufferSize,
-  )..encode(value)).takeBytes();
-
-  @override
-  Uint8List packAll(Iterable<Object?> values) {
-    final s = Serializer(
-      extEncoder: this,
-      initialBufferSize: defaultBufferSize,
-    );
-    for (final v in values) {
-      s.encode(v);
-    }
-    return s.takeBytes();
-  }
+  );
 
   @override
   T? unpack<T>(Uint8List data) =>
-      Deserializer(data, extDecoder: this).decode() as T?;
+      deserialize(
+            data,
+            extDecoder: this,
+          )
+          as T?;
 
   @override
-  List<Object?> unpackAll(Uint8List data) {
-    final d = Deserializer(data, extDecoder: this);
-    final results = <Object?>[];
-    while (d.hasBytesAvailable) {
-      results.add(d.decode());
-    }
-    return results;
-  }
+  List<Object?> unpackAll(Uint8List data) => deserializeAll(
+    data,
+    extDecoder: this,
+  );
 
   // Codec implementation
   @override
@@ -301,16 +275,26 @@ class MessagePackGroup {
       throw Exception('Subtype ${value.runtimeType} not registered');
     }
 
-    return (id, _encoders[id]!(value, context));
+    final encoder = _encoders[id];
+
+    if (encoder == null) {
+      throw MessagePackError('Encoder for subtype id $id not found');
+    }
+
+    final data = encoder(value, context);
+
+    return (id, data);
   }
 
   Object? _decode(int id, Uint8List data, MessagePackContext context) {
     final decoder = _decoders[id];
     if (decoder == null) {
-      throw Exception('Unknown subId $id');
+      throw MessagePackError('Decoder for subtype id $id not found');
     }
 
-    return decoder(data, context);
+    final result = decoder(data, context);
+
+    return result;
   }
 }
 

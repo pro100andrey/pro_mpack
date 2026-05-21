@@ -475,8 +475,10 @@ class Serializer {
   ///
   /// Returns a [Uint8List] containing all MessagePack-encoded data.
   Uint8List takeBytes() {
-    final bytes = _writer.toBytes();
-    BinaryWriterPool.release(_writer);
-    return bytes;
+    try {
+      return _writer.takeBytes();
+    } finally {
+      BinaryWriterPool.release(_writer);
+    }
   }
 }
