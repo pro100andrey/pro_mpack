@@ -1,7 +1,68 @@
-// Ignore file for demonstration purposes
+// Disable warnings for print statements in this example
 // ignore_for_file: avoid_print
 
+import 'dart:typed_data';
+
 import 'package:pro_mpack/pro_mpack.dart';
+
+void main() {
+  final user = User(
+    id: 1,
+    name: 'Alice',
+    age: 30,
+    email: 'alice@example.com',
+    created: DateTime.utc(2023),
+    updated: DateTime.utc(2023, 1, 2),
+    addresses: [
+      const Address(street: '123 Main St', city: 'New York', zipCode: 10001),
+    ],
+    products: [
+      Product(
+        title: 'Gadget',
+        description: 'A useful gadget',
+        price: BigInt.parse('123456789012345678901234567890'),
+      ),
+    ],
+  );
+
+  final userBytes = mpack.pack(user);
+  final decodedUser = mpack.unpack<User>(userBytes);
+
+  print('Decoded User: $decodedUser');
+  print('Bytes: ${userBytes.length}');
+
+  print('\n=== Imperative API ===');
+  final mpack2 = MessagePack()
+    ..register<BigInt>(
+      extId: 1,
+      encoder: (val, ctx) => ctx.pack(val.toString()),
+      decoder: (data, ctx) => BigInt.parse(ctx.unpack<String>(data)!),
+    );
+
+  final bigInt = BigInt.parse('123456789012345678901234567890');
+  final bigIntBytes = mpack2.pack(bigInt);
+  print('Decoded BigInt: ${mpack2.unpack<BigInt>(bigIntBytes)}');
+}
+
+/// Create a MessagePack instance with custom extensions.
+final mpack = MessagePack(
+  extensions: (config) {
+    config
+      ..register<BigInt>(
+        extId: 1,
+        encoder: BigIntMessagePack.encode,
+        decoder: BigIntMessagePack.decode,
+      )
+      // Declarative registration of models group
+      ..registerGroup(
+        extId: 2,
+        builder: (group) => group
+          ..userCodec()
+          ..addressCodec()
+          ..productCodec(),
+      );
+  },
+);
 
 class Address {
   const Address({
@@ -27,6 +88,7 @@ class User {
     required this.created,
     required this.updated,
     required this.addresses,
+    required this.products,
   });
 
   final int id;
@@ -36,11 +98,12 @@ class User {
   final DateTime created;
   final DateTime updated;
   final List<Address> addresses;
+  final List<Product> products;
 
   @override
   String toString() =>
       'User(id: $id, name: $name, age: $age, email: $email, created: $created, '
-      'updated: $updated, addresses: $addresses)';
+      'updated: $updated, addresses: $addresses, products: $products)';
 }
 
 class Product {
@@ -59,125 +122,103 @@ class Product {
       'Product(title: $title, description: $description, price: $price)';
 }
 
-/// Create a MessagePack extension for BigInt type.
-/// This extension encodes BigInt as its string representation
-final bigIntExt = MessagePackExtension.create<BigInt>(
-  typeId: 1,
-  encoder: (u, reg) => reg.pack(u.toString()),
-  decoder: (d, reg) => BigInt.parse(reg.unpack(d)),
-);
+extension BigIntMessagePack on BigInt {
+  static Uint8List encode(BigInt value, MessagePackContext ctx) {
+    final str = value.toString();
 
-final modelSubRegistry = MessagePackSubRegistry()
-    .add(
-      subId: 1,
-      encoder: (address, reg) => reg.packAll(
-        [
-          address.street,
-          address.city,
-          address.zipCode,
-        ],
-      ),
-      decoder: (data, reg) {
-        final fields = reg.unpackAll(data);
-        final [s as String, c as String, z as int] = fields;
+    return ctx.pack(str);
+  }
 
-        return Address(street: s, city: c, zipCode: z);
-      },
-    )
-    .add(
-      subId: 2,
-      encoder: (user, reg) => reg.packAll(
-        [
-          user.id,
-          user.name,
-          user.age,
-          user.email,
-          user.created,
-          user.updated,
-          user.addresses,
-        ],
-      ),
-      decoder: (data, reg) {
-        final fields = reg.unpackAll(data);
-        final [
-          id as int,
-          name as String,
-          age as int,
-          email as String,
-          created as DateTime,
-          updated as DateTime,
-          adds as List,
-        ] = fields;
+  static BigInt decode(Uint8List data, MessagePackContext ctx) {
+    final str = ctx.unpack<String>(data)!;
+    return BigInt.parse(str);
+  }
+}
 
-        return User(
-          id: id,
-          name: name,
-          age: age,
-          email: email,
-          created: created,
-          updated: updated,
-          addresses: adds.cast(),
-        );
-      },
-    )
-    .add(
-      subId: 3,
-      encoder: (product, reg) =>
-          reg.packAll([product.title, product.description, product.price]),
-      decoder: (data, reg) {
-        final fields = reg.unpackAll(data);
-        final [t as String, desc as String, price as BigInt] = fields;
+extension UserMessagePackGroup on MessagePackGroup {
+  void userCodec() => add(
+    typeId: 1,
+    encoder: (user, ctx) {
+      final fields = [
+        user.id,
+        user.name,
+        user.age,
+        user.email,
+        user.created,
+        user.updated,
+        user.addresses,
+        user.products,
+      ];
 
-        return Product(
-          title: t,
-          description: desc,
-          price: price,
-        );
-      },
-    );
+      return ctx.packAll(fields);
+    },
+    decoder: (data, ctx) {
+      final fields = ctx.unpackAll(data);
 
-/// Create the main registry and register extensions and sub-registries.
-final registry = MessagePackRegistry()
-  ..register(bigIntExt)
-  ..registerSub(2, modelSubRegistry);
+      final [
+        id as int,
+        name as String,
+        age as int,
+        email as String,
+        created as DateTime,
+        updated as DateTime,
+        adds as List,
+        products as List,
+      ] = fields;
 
-/// Create a codec using the registry.
-final codec = MessagePackCodec(registry: registry);
-
-void main() {
-  print('=== Basic Serialization ===');
-  final createdAt = DateTime.utc(3000, 1, 1, 12, 32, 5, 999, 999);
-  final updatedAt = DateTime.utc(1969, 12, 31, 23, 59, 59, 999, 999);
-  final user = User(
-    id: 1,
-    name: 'Alice',
-    age: 30,
-    email: 'alice@example.com',
-    created: createdAt,
-    updated: updatedAt,
-    addresses: [
-      const Address(street: '123 Main St', city: 'New York', zipCode: 10001),
-      const Address(street: '456 Oak Ave', city: 'Los Angeles', zipCode: 90001),
-    ],
+      return User(
+        id: id,
+        name: name,
+        age: age,
+        email: email,
+        created: created,
+        updated: updated,
+        addresses: adds.cast(),
+        products: products.cast(),
+      );
+    },
   );
+}
 
-  // Using extension methods
-  final userBytes = user.encode(codec: codec);
-  final decodedUser = userBytes.decode<User>(codec: codec);
+extension AddressMessagePackGroup on MessagePackGroup {
+  void addressCodec() => add(
+    typeId: 2,
+    encoder: (addr, ctx) {
+      final fields = [addr.street, addr.city, addr.zipCode];
 
-  print('Original: $user');
-  print('Decoded:  $decodedUser');
-  print('Bytes: ${userBytes.length} bytes');
+      return ctx.packAll(fields);
+    },
+    decoder: (data, ctx) {
+      final fields = ctx.unpackAll(data);
 
-  print('\n=== Product with BigInt ===');
-  final product = Product(
-    title: 'Gadget',
-    description: 'A useful gadget',
-    price: BigInt.parse('12345678901234567890'),
+      final [
+        street as String,
+        city as String,
+        zipCode as int,
+      ] = fields;
+
+      return Address(street: street, city: city, zipCode: zipCode);
+    },
   );
+}
 
-  final productBytes = product.encode(codec: codec);
-  final decodedProduct = productBytes.decode<Product>(codec: codec);
-  print(decodedProduct);
-  print('Bytes: ${productBytes.length} bytes');
+extension ProductMessagePackGroup on MessagePackGroup {
+  void productCodec() => add(
+    typeId: 3,
+    encoder: (product, ctx) {
+      final fields = [product.description, product.price, product.title];
+      return ctx.packAll(fields);
+    },
+    decoder: (data, ctx) {
+      final fields = ctx.unpackAll(data);
+
+      final [
+        description as String,
+        price as BigInt,
+        title as String,
+      ] = fields;
+
+      return Product(description: description, price: price, title: title);
+    },
+  );
 }

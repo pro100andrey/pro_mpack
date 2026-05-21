@@ -33,13 +33,13 @@ class DeserializerModelsBenchmark extends BenchmarkBase {
   late final Uint8List bytes;
   @override
   void setup() {
-    bytes = user.encode(codec: codec);
+    bytes = codec.encode(user);
   }
 
   @override
   void run() {
     for (var i = 0; i < 1000; i++) {
-      final _ = bytes.decode<User>(codec: codec);
+      final _ = codec.decode<User>(bytes);
     }
   }
 

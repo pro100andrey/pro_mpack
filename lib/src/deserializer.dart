@@ -13,21 +13,9 @@ import 'error.dart';
 /// This mixin is intended to be implemented by classes that handle the decoding
 /// of custom extension types in MessagePack format. The implementing class must
 /// provide the implementation for the `decodeObject` method.
-// ignore: one_member_abstracts
 abstract mixin class ExtDecoder {
   /// Decodes a custom extension type object.
-  ///
-  /// This method is called when a custom extension type object is encountered
-  /// during deserialization. The method should decode the object based on the
-  /// provided extension type and data.
-  ///
-  /// [extType] is the integer representing the custom extension type.
-  /// [data] is the binary data associated with the extension type.
-  ///
-  /// Returns the decoded object, or `null` if the object could not be decoded.
-  ///
-  /// Throws an [UnimplementedError] if the extension type is not recognized.
-  Object? decodeObject(int extType, Uint8List data);
+  Object? decodeObject(int extType, Uint8List data, ExtDecoder context);
 }
 
 /// A class responsible for deserializing MessagePack-encoded data.
@@ -301,7 +289,7 @@ class Deserializer {
     }
 
     final data = _reader.readBytes(length);
-    return _extDecoder?.decodeObject(extType, data);
+    return _extDecoder?.decodeObject(extType, data, _extDecoder);
   }
 
   @pragma('vm:prefer-inline')

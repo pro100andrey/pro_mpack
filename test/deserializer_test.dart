@@ -487,7 +487,7 @@ void main() {
       [0x92 /*fixarray(2)*/, 0x91 /*fixarray(1)*/, 1, 2],
     ); // [[1], 2]
     final result = deserialize(buffer);
-    expect(result, [
+    expect(result, <Object?>[
       [1],
       2,
     ]);
@@ -504,7 +504,7 @@ void main() {
       1,
     ]); // {"a": {"b": 1}}
     final result = deserialize(buffer);
-    expect(result, {
+    expect(result, <Object?, Object?>{
       'a': {'b': 1},
     });
   });
