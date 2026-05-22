@@ -1,30 +1,122 @@
-/// Exception thrown when a MessagePack serialization or deserialization
-/// operation fails.
+/// Base class for all exceptions thrown by the MessagePack library.
 ///
-/// This exception is thrown in various scenarios:
-/// - Invalid MessagePack format encountered during deserialization
-/// - Data structures exceeding MessagePack size limits
-/// - Unsupported types during serialization
-/// - Invalid extension type codes
-/// - Insufficient buffer data during deserialization
+/// This is a `sealed` class, meaning you can exhaustively catch all its
+/// subclasses in a `switch` statement to handle different error scenarios
+/// gracefully.
 ///
 /// Example:
 /// ```dart
 /// try {
-///   final data = deserialize(invalidBytes);
+///   final data = deserialize(bytes);
 /// } on MessagePackException catch (e) {
-///   print('Failed to deserialize: ${e.message}');
+///   switch (e) {
+///     case MessagePackFormatException():
+///       print('Data is corrupted: ${e.message}');
+///     case MessagePackUnsupportedTypeException():
+///       print('Tried to encode unknown type: ${e.unsupportedType}');
+///     case MessagePackSizeException():
+///       print('Payload too large: ${e.message}');
+///     case MessagePackConfigurationException():
+///       print('Extension config error: ${e.message}');
+///   }
 /// }
 /// ```
-class MessagePackException implements Exception {
-  /// Creates a [MessagePackException] with an optional [message].
-  ///
-  /// [message]: A description of what went wrong during the operation.
-  MessagePackException(this.message);
+sealed class MessagePackException implements Exception {
+  /// Creates a [MessagePackException].
+  const MessagePackException(this.message, [this.suggestion]);
 
-  /// The exception message.
+  /// The description of what went wrong.
   final String message;
 
+  /// An optional actionable suggestion on how to fix the error.
+  final String? suggestion;
+
   @override
-  String toString() => 'MessagePackException: $message';
+  String toString() {
+    final buffer = StringBuffer('MessagePackException: $message');
+    if (suggestion != null) {
+      buffer.write('\nSuggestion: $suggestion');
+    }
+    return buffer.toString();
+  }
+}
+
+/// Thrown when the binary data does not conform to the MessagePack spec.
+///
+/// Examples include encountering reserved bytes (0xc1), malformed timestamps,
+/// or reaching the end of the buffer unexpectedly.
+class MessagePackFormatException extends MessagePackException {
+  /// Creates a [MessagePackFormatException].
+  const MessagePackFormatException(super.message, [super.suggestion]);
+
+  @override
+  String toString() {
+    final buffer = StringBuffer('MessagePackFormatException: $message');
+    if (suggestion != null) {
+      buffer.write('\nSuggestion: $suggestion');
+    }
+    return buffer.toString();
+  }
+}
+
+/// Thrown when attempting to serialize an object that isn't supported.
+///
+/// This happens when an object is not a primitive type, not a collection,
+/// and has no registered custom extension encoder.
+class MessagePackUnsupportedTypeException extends MessagePackException {
+  /// Creates a [MessagePackUnsupportedTypeException].
+  const MessagePackUnsupportedTypeException(
+    this.unsupportedType,
+    super.message, [
+    super.suggestion,
+  ]);
+
+  /// The runtime type of the object that caused the serialization failure.
+  final Type unsupportedType;
+
+  @override
+  String toString() {
+    final buffer = StringBuffer(
+      'MessagePackUnsupportedTypeException: $message',
+    );
+    if (suggestion != null) {
+      buffer.write('\nSuggestion: $suggestion');
+    }
+    return buffer.toString();
+  }
+}
+
+/// Thrown when a string, collection, or binary blob exceeds MessagePack limits.
+///
+/// MessagePack specifies a maximum size of 2^32 - 1 (approx 4GB) for elements.
+class MessagePackSizeException extends MessagePackException {
+  /// Creates a [MessagePackSizeException].
+  const MessagePackSizeException(super.message, [super.suggestion]);
+
+  @override
+  String toString() {
+    final buffer = StringBuffer('MessagePackSizeException: $message');
+    if (suggestion != null) {
+      buffer.write('\nSuggestion: $suggestion');
+    }
+    return buffer.toString();
+  }
+}
+
+/// Thrown when there's an error in the custom extension configuration.
+///
+/// Examples include registering duplicate extension IDs, using out-of-range
+/// IDs (-128 to 127), or missing decoders.
+class MessagePackConfigurationException extends MessagePackException {
+  /// Creates a [MessagePackConfigurationException].
+  const MessagePackConfigurationException(super.message, [super.suggestion]);
+
+  @override
+  String toString() {
+    final buffer = StringBuffer('MessagePackConfigurationException: $message');
+    if (suggestion != null) {
+      buffer.write('\nSuggestion: $suggestion');
+    }
+    return buffer.toString();
+  }
 }

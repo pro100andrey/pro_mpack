@@ -145,7 +145,10 @@ class MessagePack extends Codec<dynamic, Uint8List>
     }(), 'Invalid extension type');
 
     if (_decoderMap.containsKey(extId)) {
-      throw MessagePackException('Extension with id $extId already registered');
+      throw MessagePackConfigurationException(
+        'Extension with id $extId already registered.',
+        'Use a unique extension ID between -128 and 127.',
+      );
     }
 
     final ext = _Extension(
@@ -205,7 +208,10 @@ class MessagePack extends Codec<dynamic, Uint8List>
     MessagePackGroup group,
   ) {
     if (data.isEmpty) {
-      throw MessagePackException('Empty group data');
+      throw const MessagePackFormatException(
+        'Empty group data.',
+        'Ensure the encoded group data contains at least a subtype ID.',
+      );
     }
 
     final reader = BinaryReader(data);
@@ -329,7 +335,11 @@ class MessagePack extends Codec<dynamic, Uint8List>
   Uint8List encodeObject(Object? object) {
     final typeId = extTypeForObject(object);
     if (typeId == null) {
-      throw Exception('No encoder for ${object.runtimeType}');
+      throw MessagePackUnsupportedTypeException(
+        object.runtimeType,
+        'No encoder for the provided type.',
+        'Register an extension for this type before serializing.',
+      );
     }
 
     final ext = _extensionsCache[object.runtimeType];
@@ -424,7 +434,10 @@ class MessagePackGroup {
   Object? _decode(int id, Uint8List data, MessagePackContext context) {
     final ext = _decoders[id];
     if (ext == null) {
-      throw MessagePackException('Decoder for subtype id $id not found');
+      throw MessagePackConfigurationException(
+        'Decoder for subtype id $id not found.',
+        'Ensure all subtypes are registered in the group using group.add().',
+      );
     }
 
     return ext.decode(data, context);

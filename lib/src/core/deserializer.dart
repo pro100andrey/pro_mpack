@@ -212,13 +212,19 @@ class Deserializer {
 
       // Never used (0xc1): reserved by MessagePack specification
       case fNeverUsed:
-        throw MessagePackException(
+        throw const MessagePackFormatException(
           'Invalid format byte 0xc1: this value is reserved and never used '
-          'in MessagePack specification',
+              'in MessagePack specification',
+          'Ensure the data source is valid MessagePack and the stream '
+              'is not corrupted.',
         );
       // Default case: invalid MessagePack format
       default:
-        throw MessagePackException('Invalid MessagePack format');
+        throw MessagePackFormatException(
+          'Invalid MessagePack format byte: '
+              '0x${u.toRadixString(16).padLeft(2, "0")}',
+          'The data might be corrupted or not in MessagePack format.',
+        );
     }
   }
 
@@ -284,7 +290,10 @@ class Deserializer {
         final microseconds = seconds * 1000000 + nanoSeconds ~/ 1000;
         return .fromMicrosecondsSinceEpoch(microseconds, isUtc: true);
       default:
-        throw MessagePackException('Invalid timestamp length: $length');
+        throw MessagePackFormatException(
+          'Invalid timestamp length: $length',
+          'Timestamps must be 4, 8, or 12 bytes long according to the spec.',
+        );
     }
   }
 }

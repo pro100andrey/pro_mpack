@@ -132,7 +132,11 @@ class Serializer {
       case _ when _extEncoder != null && writeExt(value):
         return;
       case _:
-        throw MessagePackException("Don't know how to serialize $value");
+        throw MessagePackUnsupportedTypeException(
+          value.runtimeType,
+          "Don't know how to serialize $value",
+          'Register an ExtEncoder for this type or use a standard supported type.',
+        );
     }
   }
 
@@ -235,8 +239,9 @@ class Serializer {
           ..writeUint8(fStr32)
           ..writeUint32(length);
       default:
-        throw MessagePackException(
-          'String is too long to be serialized with messagePack.',
+        throw const MessagePackSizeException(
+          'String is too long to be serialized with MessagePack.',
+          'Ensure string byte length does not exceed 4,294,967,295 bytes.',
         );
     }
 
@@ -261,8 +266,9 @@ class Serializer {
           ..writeUint8(fBin32)
           ..writeUint32(length);
       default:
-        throw MessagePackException(
-          'Data is too long to be serialized with messagePack.',
+        throw const MessagePackSizeException(
+          'Binary data is too long to be serialized with MessagePack.',
+          'Ensure Uint8List size does not exceed 4,294,967,295 bytes.',
         );
     }
 
@@ -285,8 +291,9 @@ class Serializer {
           ..writeUint8(fArray32)
           ..writeUint32(length);
       default:
-        throw MessagePackException(
-          'Array is too big to be serialized with messagePack',
+        throw const MessagePackSizeException(
+          'Array is too big to be serialized with MessagePack.',
+          'Ensure the Iterable has no more than 4,294,967,295 elements.',
         );
     }
 
@@ -318,8 +325,9 @@ class Serializer {
           ..writeUint8(fMap32)
           ..writeUint32(length);
       default:
-        throw MessagePackException(
-          'Map is too big to be serialized with messagePack',
+        throw const MessagePackSizeException(
+          'Map is too big to be serialized with MessagePack.',
+          'Ensure the Map has no more than 4,294,967,295 key-value pairs.',
         );
     }
 
@@ -335,14 +343,18 @@ class Serializer {
 
     if (type != null) {
       if (type < -128 || type > 127) {
-        throw MessagePackException('Type must be in the range of -128 to 127');
+        throw const MessagePackConfigurationException(
+          'Type must be in the range of -128 to 127.',
+          'Ensure your custom extension ID is between -128 and 127.',
+        );
       }
 
       final encoded = _extEncoder?.encodeObject(object);
 
       if (encoded == null) {
-        throw MessagePackException(
+        throw MessagePackConfigurationException(
           'Unable to encode object. No Encoder specified.',
+          'Check your ExtEncoder implementation for $object.',
         );
       }
 
@@ -372,7 +384,11 @@ class Serializer {
             ..writeUint8(fExt32) // ext32
             ..writeUint32(length);
         case _:
-          throw MessagePackException('Size must be at most $limitUint32');
+          throw const MessagePackSizeException(
+            'Extension payload is too large.',
+            'Ensure the encoded extension data size does not '
+                'exceed 4,294,967,295 bytes.',
+          );
       }
 
       _writer
