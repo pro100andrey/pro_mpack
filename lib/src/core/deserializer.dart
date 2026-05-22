@@ -1,4 +1,5 @@
-// Mask constants
+/// Components for MessagePack deserialization.
+library;
 
 import 'dart:collection';
 import 'dart:typed_data';
@@ -8,39 +9,30 @@ import 'package:pro_binary/pro_binary.dart';
 import 'constants.dart';
 import 'error.dart';
 
-/// A mixin that provides functionality for decoding custom extension types.
+/// A mixin that defines the interface for decoding custom extension types.
 ///
-/// This mixin is intended to be implemented by classes that handle the decoding
-/// of custom extension types in MessagePack format. The implementing class must
-/// provide the implementation for the `decodeObject` method.
+/// Classes that want to support custom MessagePack extensions should implement
+/// this mixin. It provides a method to decode a custom extension's binary
+/// payload back into a Dart object.
 abstract mixin class ExtDecoder {
-  /// Decodes a custom extension type object.
+  /// Decodes a custom extension object from its [data] payload.
   ///
-  /// This method is called when a custom extension type object is encountered
-  /// during deserialization. The method should decode the object based on the
-  /// provided extension type and data.
+  /// [extType] is the type code of the extension (-128 to 127).
+  /// [data] is the binary payload associated with the extension.
   ///
-  /// [extType] is the integer representing the custom extension type.
-  /// [data] is the binary data associated with the extension type.
+  /// Returns the decoded Dart object.
   ///
-  /// Returns the decoded object, or `null` if the object could not be decoded.
-  ///
-  /// Throws an [UnimplementedError] if the extension type is not recognized.
+  /// Throws a [MessagePackError] if decoding fails or if the extension type
+  /// is not recognized.
   Object? decodeObject(int extType, Uint8List data);
 }
 
-/// A class responsible for deserializing MessagePack-encoded data.
+/// A class for decoding MessagePack binary data into Dart objects.
 ///
-/// The [Deserializer] class provides a low-level interface for decoding
-/// MessagePack binary data into Dart objects. It maintains an internal
-/// reader that tracks the current position in the buffer.
+/// [Deserializer] provides a stateful way to decode one or more values from
+/// a provided binary buffer. It tracks the current reading position.
 ///
-/// ## Usage
-///
-/// For most use cases, prefer the high-level `deserialize()` function. Use
-/// [Deserializer] directly when you need to decode multiple values from a
-/// single buffer:
-///
+/// Example:
 /// ```dart
 /// final deserializer = Deserializer(bytes);
 /// while (deserializer.hasBytesAvailable) {
@@ -48,22 +40,13 @@ abstract mixin class ExtDecoder {
 ///   print(value);
 /// }
 /// ```
-///
-/// The deserializer automatically handles all MessagePack types and formats,
-/// including nested structures and extension types.
 class Deserializer {
-  /// Creates a [Deserializer] with a given [buffer] and an optional
-  /// [extDecoder].
+  /// Creates a [Deserializer] instance for the provided [buffer].
   ///
-  /// [buffer]: The MessagePack-encoded binary data to deserialize.
-  ///
-  /// [extDecoder]: Optional decoder for custom extension types. When
-  /// provided, extension types (other than the built-in timestamp type -1)
-  /// will be decoded using this decoder.
-  ///
-  /// [preserveMapOrder]: If `true`, maps will preserve the insertion order
-  /// of their key-value pairs. Defaults to `false`, which uses a standard
-  /// `HashMap` that does not guarantee order.
+  /// [extDecoder] provides support for custom extension types.
+  /// [preserveMapOrder] if true, uses a standard [Map] (LinkedHashMap) to
+  /// maintain the order of keys as they appear in the MessagePack data.
+  /// If false, uses [HashMap] for potentially better performance.
   Deserializer(
     Uint8List buffer, {
     ExtDecoder? extDecoder,
@@ -76,48 +59,28 @@ class Deserializer {
   final ExtDecoder? _extDecoder;
   final bool _preserveMapOrder;
 
-  /// Returns `true` if there are unread bytes remaining in the buffer.
-  ///
-  /// This property is useful when deserializing multiple consecutive values
-  /// from a single buffer:
-  ///
-  /// ```dart
-  /// final deserializer = Deserializer(buffer);
-  /// while (deserializer.hasBytesAvailable) {
-  ///   final value = deserializer.decode();
-  ///   processValue(value);
-  /// }
-  /// ```
+  /// Whether there are more bytes to read in the buffer.
   bool get hasBytesAvailable => _reader.availableBytes > 0;
 
   /// Decodes the next value from the buffer.
   ///
-  /// This method reads the next MessagePack value from the current position
-  /// in the buffer and advances the position. The type of the returned value
-  /// depends on the MessagePack format:
+  /// Reads the appropriate number of bytes based on the MessagePack format
+  /// prefix and returns the corresponding Dart object.
   ///
-  /// - nil (0xc0) → `null`
-  /// - bool (0xc2, 0xc3) → `bool`
-  /// - fixint, int8/16/32/64 → `int`
-  /// - float32/64 → `double`
-  /// - fixstr, str8/16/32 → `String`
-  /// - bin8/16/32 → `Uint8List`
-  /// - fixarray, array16/32 → `List<Object?>`
-  /// - fixmap, map16/32 → `Map<Object?, Object?>`
-  /// - timestamp ext (-1) → `DateTime`
-  /// - other extensions → decoded via [ExtDecoder] if provided
+  /// Supported types include:
+  /// - nil -> `null`
+  /// - bool -> `bool`
+  /// - int -> `int`
+  /// - float 32/64 -> `double`
+  /// - str -> `String`
+  /// - bin -> `Uint8List`
+  /// - array -> `List<Object?>`
+  /// - map -> `Map<Object?, Object?>`
+  /// - timestamp -> `DateTime`
+  /// - Custom types via [ExtDecoder]
   ///
-  /// Example:
-  /// ```dart
-  /// final deserializer = Deserializer(buffer);
-  /// final value = deserializer.decode();
-  /// ```
-  ///
-  /// Returns the deserialized object, which may be `null`, a primitive
-  /// type, a collection, or a custom type from an extension decoder.
-  ///
-  /// Throws [MessagePackError] if the buffer contains invalid MessagePack
-  /// format or if there are insufficient bytes to read.
+  /// Throws a [MessagePackError] if the data is invalid or the buffer ends
+  /// unexpectedly.
   Object? decode() {
     final u = _reader.readUint8();
 

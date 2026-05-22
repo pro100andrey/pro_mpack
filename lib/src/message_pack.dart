@@ -1,3 +1,6 @@
+/// High-level MessagePack API with a builder-style interface for extensions.
+library;
+
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -7,42 +10,57 @@ import 'core/deserializer.dart';
 import 'core/error.dart';
 import 'core/serializer.dart';
 
+/// A function type that encodes a value of type [T] into bytes.
 typedef Encoder<T> = Uint8List Function(T value, MessagePackContext context);
+
+/// A function type that decodes bytes into a value of type [T].
 typedef Decoder<T> = T Function(Uint8List data, MessagePackContext context);
 
-/// Context for MessagePack serialization and deserialization.
+/// A context for MessagePack serialization and deserialization.
 ///
-/// This interface provides methods for packing and unpacking values,
-/// allowing custom extension encoders and decoders to recursively
-/// process nested data.
+/// This interface is passed to custom encoders and decoders, allowing them
+/// to recursively pack and unpack nested objects using the same configuration.
 abstract interface class MessagePackContext {
+  /// The default constructor for [MessagePackContext].
   const MessagePackContext();
 
-  /// Packs a single value into a MessagePack-encoded [Uint8List].
+  /// Packs [value] into a MessagePack-encoded [Uint8List].
   Uint8List pack<T>(T value);
 
-  /// Packs multiple values into a MessagePack-encoded [Uint8List].
+  /// Packs a sequence of [values] into a single MessagePack-encoded [Uint8List].
   Uint8List packAll<T>(Iterable<T> values);
 
-  /// Unpacks a single value from a MessagePack-encoded [Uint8List].
+  /// Unpacks a single value of type [T] from the provided [data].
   T unpack<T>(Uint8List data);
 
-  /// Unpacks all consecutive values from a MessagePack-encoded [Uint8List].
+  /// Unpacks all consecutive values from [data] into a list of type [T].
   List<T> unpackAll<T>(Uint8List data);
 }
 
-/// A class responsible for encoding and decoding MessagePack data with
-/// support for custom extensions.
+/// A class for high-level MessagePack operations with custom extension support.
 ///
-/// [MessagePack] provides a unified, simple interface for MessagePack
-/// operations. It supports both declarative (via builder) and
-/// imperative (via direct methods) registration of extensions.
+/// [MessagePack] implements the standard Dart [Codec] interface and provides
+/// a builder-style API for registering custom extension types and groups.
+///
+/// Example:
+/// ```dart
+/// final mpack = MessagePack(extensions: (m) {
+///   m.register<MyClass>(
+///     extId: 10,
+///     encoder: (val, ctx) => ctx.pack(val.toJson()),
+///     decoder: (data, ctx) => MyClass.fromJson(ctx.unpack(data)),
+///   );
+/// });
+///
+/// final bytes = mpack.encode(myObject);
+/// final decoded = mpack.decode(bytes);
+/// ```
 class MessagePack extends Codec<dynamic, Uint8List>
     implements MessagePackContext, ExtEncoder, ExtDecoder {
-  /// Creates a new [MessagePack] instance.
+  /// Creates a [MessagePack] instance.
   ///
-  /// The optional [extensions] builder allows for declarative configuration
-  /// of custom types and groups.
+  /// [extensions] is an optional callback for registering custom types.
+  /// [defaultBufferSize] determines the initial size for serialization buffers.
   MessagePack({
     void Function(MessagePack)? extensions,
     this.defaultBufferSize = 1024,
@@ -52,7 +70,7 @@ class MessagePack extends Codec<dynamic, Uint8List>
     extensions?.call(this);
   }
 
-  /// Initial buffer size for serialization.
+  /// The default buffer size for serialization.
   final int defaultBufferSize;
 
   final List<_Extension> _extensions;
@@ -62,8 +80,9 @@ class MessagePack extends Codec<dynamic, Uint8List>
   /// Registers a custom extension for type [T].
   ///
   /// [extId] must be between -128 and 127.
-  /// [encoder] converts a value of type [T] to bytes.
-  /// [decoder] converts bytes back to a value of type [T].
+  /// [encoder] and [decoder] are used for conversion.
+  ///
+  /// Built-in types cannot be registered as extensions.
   void register<T>({
     required int extId,
     required Encoder<T> encoder,
@@ -115,8 +134,27 @@ class MessagePack extends Codec<dynamic, Uint8List>
 
   /// Registers a group of related types under a single [extId].
   ///
-  /// This is useful for polymorphism or when you have many related types
-  /// and want to save extension IDs.
+  /// This allows polymorphic types to share a single MessagePack extension ID
+  /// by using internal sub-IDs for each specific type.
+  ///
+  /// Example:
+  /// ```dart
+  /// mpack.registerGroup<Shape>(
+  ///   extId: 20,
+  ///   builder: (group) {
+  ///     group.add<Circle>(
+  ///       subId: 1,
+  ///       encoder: (c, ctx) => ctx.pack(c.radius),
+  ///       decoder: (d, ctx) => Circle(ctx.unpack(d)),
+  ///     );
+  ///     group.add<Square>(
+  ///       subId: 2,
+  ///       encoder: (s, ctx) => ctx.pack(s.side),
+  ///       decoder: (d, ctx) => Square(ctx.unpack(d)),
+  ///     );
+  ///   },
+  /// );
+  /// ```
   void registerGroup<Base>({
     required int extId,
     required void Function(MessagePackGroup group) builder,
@@ -291,12 +329,18 @@ class _MessagePackDecoder extends Converter<Uint8List, Object?> {
 }
 
 /// A builder for grouping multiple types under a single extension ID.
+///
+/// This class is used within [MessagePack.registerGroup] to define how
+/// different subtypes are encoded and decoded using sub-IDs.
 class MessagePackGroup {
   final List<_Extension> _extensions = [];
   final Map<Type, _Extension> _extensionsCache = {};
   final Map<int, _Extension> _decoders = {};
 
   /// Adds a subtype to the group.
+  ///
+  /// [subId] is an internal ID used to distinguish types within the group.
+  /// [encoder] and [decoder] are used for conversion.
   void add<T>({
     required int subId,
     required Encoder<T> encoder,
@@ -351,6 +395,7 @@ class MessagePackGroup {
   }
 }
 
+/// Internal representation of a MessagePack extension.
 class _Extension {
   _Extension({
     required this.id,
@@ -359,8 +404,15 @@ class _Extension {
     required this.decode,
   });
 
+  /// The extension ID (or sub-ID in a group).
   final int id;
+
+  /// A function that checks if this extension can handle the given object.
   final bool Function(Object?) canHandle;
+
+  /// A function that encodes the object into bytes.
   final Encoder<Object?> encode;
+
+  /// A function that decodes bytes into an object.
   final Decoder<Object?> decode;
 }

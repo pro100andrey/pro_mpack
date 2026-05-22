@@ -1,3 +1,6 @@
+/// Components for MessagePack serialization.
+library;
+
 import 'dart:typed_data';
 
 import 'package:pro_binary/pro_binary.dart';
@@ -5,104 +8,70 @@ import 'package:pro_binary/pro_binary.dart';
 import 'constants.dart';
 import 'error.dart';
 
-/// A mixin that provides functionality for encoding custom extension types.
+/// A mixin that defines the interface for encoding custom extension types.
 ///
-/// This mixin is intended to be implemented by classes that handle the encoding
-/// of custom extension types in MessagePack format. The implementing class must
-/// provide the implementations for the `extTypeForObject` and `encodeObject`
-///  methods.
+/// Classes that want to support custom MessagePack extensions should implement
+/// this mixin. It provides methods to determine if an object can be encoded
+/// as a custom extension and to perform the actual encoding.
 abstract mixin class ExtEncoder {
-  /// Returns the extension type for a given [object].
+  /// Returns the extension type code for a given [object].
   ///
-  /// This method determines the custom extension type integer that represents
-  /// the given [object]. If the object cannot be encoded as an extension type,
-  /// the method returns `null`.
+  /// The type code must be an integer between -128 and 127.
+  /// Type -1 is reserved for the built-in [DateTime] (timestamp) extension.
   ///
-  /// [object] is the object to be encoded as an extension type.
-  ///
-  /// Returns an integer representing the extension type, or `null` if the
-  /// object cannot be encoded.
+  /// Returns `null` if the object cannot be encoded as an extension type.
   int? extTypeForObject(Object? object);
 
-  /// Encodes a given [object] into a Uint8List.
+  /// Encodes [object] into its binary representation.
   ///
-  /// This method serializes the given [object] into a binary format represented
-  /// by a `Uint8List`. It should be used for objects that can be encoded as
-  /// custom extension types.
+  /// This method is called only if [extTypeForObject] returned a non-null value
+  /// for the same object.
   ///
-  /// [object] is the object to be encoded.
+  /// Returns a [Uint8List] containing the encoded bytes.
   ///
-  /// Returns a `Uint8List` representing the encoded object.
-  ///
-  /// Throws an [MessagePackError] if the object cannot be encoded.
+  /// Throws a [MessagePackError] if encoding fails.
   Uint8List encodeObject(Object? object);
 }
 
-/// A class representing a 32-bit floating-point number.
+/// A wrapper for explicitly serializing a [double] as a 32-bit float.
 ///
-/// By default, Dart's `double` type is serialized as a 64-bit float
-/// (float64) in MessagePack. Use [Float] to explicitly serialize a value
-/// as a 32-bit float (float32), which can save space when full 64-bit
-/// precision is not needed.
+/// In MessagePack, Dart's `double` type (64-bit) is serialized as `float 64`
+/// by default. Use [Float] to force serialization as `float 32`, saving 4 bytes
+/// when full 64-bit precision is not required.
 ///
 /// Example:
 /// ```dart
-/// final data = serialize({
-///   'precise': 3.14159265359, // Serialized as float64
-///   'compact': Float(3.14),   // Serialized as float32
-/// });
+/// final data = serialize(Float(3.14)); // Encoded as float 32
 /// ```
 class Float {
-  /// Creates a [Float] with the specified [value].
+  /// Creates a [Float] wrapper for the given [value].
   Float(this.value);
 
+  /// The underlying double value.
   final double value;
 
   @override
   String toString() => 'Float($value)';
 }
 
-/// A class responsible for serializing various data types into MessagePack
-/// format.
+/// A class for encoding Dart objects into MessagePack binary format.
 ///
-/// The [Serializer] class provides a low-level interface for encoding Dart
-/// objects into the MessagePack binary format. It maintains an internal
-/// buffer that grows as needed during serialization.
+/// [Serializer] provides a stateful way to encode multiple values into a
+/// single buffer. It manages an internal, growing buffer for performance.
 ///
-/// ## Supported Types
-///
-/// - Primitives: `null`, `bool`, `int`, `double`
-/// - Collections: `List`, `Map`, `Iterable`
-/// - Binary data: `Uint8List`, `ByteData`
-/// - Text: `String` (UTF-8 encoded)
-/// - Special: `DateTime` (as timestamp extension), [Float] (32-bit float)
-/// - Custom extension types via [ExtEncoder]
-///
-/// ## Usage
-///
-/// For most use cases, prefer the high-level `serialize()` function. Use
-/// [Serializer] directly when you need more control or are encoding
-/// multiple values:
-///
+/// Example:
 /// ```dart
 /// final serializer = Serializer();
-/// serializer.encode(123);
-/// serializer.encode('hello');
+/// serializer.encode(true);
+/// serializer.encode(42);
 /// final bytes = serializer.takeBytes();
 /// ```
 class Serializer {
-  /// Creates a [Serializer] with an optional [extEncoder] and
-  /// [initialBufferSize].
+  /// Creates a [Serializer] instance.
   ///
-  /// [extEncoder]: Optional encoder for custom extension types. When
-  /// provided, objects that match custom types will be encoded using this
-  /// encoder.
-  ///
-  /// [initialBufferSize]: The initial capacity of the internal buffer in
-  /// bytes. The buffer will grow automatically as needed, but setting an
-  /// appropriate initial size can improve performance by reducing
-  /// allocations. Default is `1024`. Consider using larger values (e.g.,
-  /// 8192 or 16384) when encoding large objects.
+  /// [extEncoder] provides support for custom extension types.
+  /// [initialBufferSize] sets the initial capacity of the internal buffer.
+  /// The buffer grows automatically if needed.
   Serializer({
     ExtEncoder? extEncoder,
     int initialBufferSize = 1024,
@@ -113,26 +82,23 @@ class Serializer {
   late final BinaryWriter _writer;
   final ExtEncoder? _extEncoder;
 
-  /// Encodes a given [value] into MessagePack format.
+  /// Encodes [value] into MessagePack format and writes it to the buffer.
   ///
-  /// This method determines the appropriate MessagePack encoding based on
-  /// the runtime type of [value] and writes it to the internal buffer.
-  ///
-  /// [value]: The object to encode. Can be:
-  /// - `null` → nil format (0xc0)
-  /// - `bool` → true (0xc3) or false (0xc2)
-  /// - `int` → fixint, or int8/16/32/64 based on value range
-  /// - [Float] → float32
-  /// - `double` → float64
-  /// - `String` → fixstr, str8/16/32 based on length
-  /// - `Uint8List` or `ByteData` → bin8/16/32
-  /// - `Iterable` → fixarray or array16/32
-  /// - `Map` → fixmap or map16/32
-  /// - `DateTime` → timestamp extension (-1)
+  /// Supports all standard MessagePack types:
+  /// - `null` -> nil
+  /// - `bool` -> true/false
+  /// - `int` -> positive/negative fixint, uint8-64, int8-64
+  /// - `double` -> float 64
+  /// - [Float] -> float 32
+  /// - `String` -> fixstr, str8-32
+  /// - `Uint8List`/`ByteData` -> bin8-32
+  /// - `Iterable` -> fixarray, array16-32
+  /// - `Map` -> fixmap, map16-32
+  /// - `DateTime` -> timestamp extension (-1)
   /// - Custom types via [ExtEncoder]
   ///
-  /// Throws [MessagePackError] if the value cannot be serialized or if
-  /// it's too large for the MessagePack format limits.
+  /// Throws a [MessagePackError] if the value type is not supported or
+  /// if collection sizes exceed MessagePack limits.
   void encode(Object? value) {
     switch (value) {
       case null:
