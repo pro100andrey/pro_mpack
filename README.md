@@ -89,7 +89,7 @@ Perfect for configuring your application's data protocol in one place.
 ```dart
 final mpack = MessagePack(
   extensions: (config) {
-    // Register a simple type
+    // Register a custom codec for BigInt, which is not natively supported by MessagePack
     config.register<BigInt>(
       extId: 1,
       encoder: (val, ctx) => ctx.pack(val.toString()),
@@ -97,7 +97,7 @@ final mpack = MessagePack(
     );
 
     // Register a group of related types (saves Extension IDs)
-    config.registerGroup<Address>(
+    config.registerGroup(
       extId: 2,
       builder: (group) {
         group.add<Address>(
@@ -169,13 +169,13 @@ By default, `double` values are serialized as 64-bit floats. Use the `Float` wra
 final bytes = mpack.pack(Float(3.14)); // Serialized as float32
 ```
 
-## Benchmarks
+## Testing
 
-The library is designed for maximum throughput. Run performance tests with:
+The library includes comprehensive tests covering all features and edge cases. To run the tests, use:
 
 ```bash
-dart test test/serializer_performance_test.dart
-dart test test/deserializer_performance_test.dart
+dart test
+
 ```
 
 ## License

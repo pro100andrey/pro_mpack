@@ -118,6 +118,19 @@ void main() {
         );
       });
 
+      test('throws ArgumentError for String (Object?)', () {
+        expect(
+          () => MessagePack(
+            extensions: (c) => c.register<Object?>(
+              extId: 1,
+              encoder: (v, ctx) => ctx.pack(v),
+              decoder: (d, ctx) => ctx.unpack<String>(d),
+            ),
+          ),
+          throwsArgumentError,
+        );
+      });
+
       test('throws ArgumentError for String', () {
         expect(
           () => MessagePack(

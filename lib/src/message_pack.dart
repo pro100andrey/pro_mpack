@@ -7,7 +7,7 @@ import 'dart:typed_data';
 import 'package:pro_binary/pro_binary.dart';
 
 import 'core/deserializer.dart';
-import 'core/error.dart';
+import 'core/exception.dart';
 import 'core/serializer.dart';
 
 /// A function type that encodes a value of type [T] into bytes.
@@ -27,7 +27,8 @@ abstract interface class MessagePackContext {
   /// Packs [value] into a MessagePack-encoded [Uint8List].
   Uint8List pack<T>(T value);
 
-  /// Packs a sequence of [values] into a single MessagePack-encoded [Uint8List].
+  /// Packs a sequence of [values] into a single MessagePack-encoded
+  /// [Uint8List].
   Uint8List packAll<T>(Iterable<T> values);
 
   /// Unpacks a single value of type [T] from the provided [data].
@@ -88,6 +89,23 @@ class MessagePack extends Codec<dynamic, Uint8List>
     required Encoder<T> encoder,
     required Decoder<T> decoder,
   }) {
+    _registerInternal<T>(
+      extId: extId,
+      encoder: encoder,
+      decoder: decoder,
+      isGroup: false,
+    );
+  }
+
+  /// Internal method for registering extensions.
+  ///
+  /// [isGroup] allows broad types (Object, dynamic) when registering a group.
+  void _registerInternal<T>({
+    required int extId,
+    required Encoder<T> encoder,
+    required Decoder<T> decoder,
+    required bool isGroup,
+  }) {
     assert(() {
       const builtinTypes = {
         int,
@@ -105,19 +123,29 @@ class MessagePack extends Codec<dynamic, Uint8List>
 
       bool isBuiltIn(Type type) => builtinTypes.contains(type);
 
-      if (!isBuiltIn(T)) {
-        return true;
+      if (isBuiltIn(T)) {
+        throw ArgumentError(
+          "Type '$T' is a built-in type and cannot be registered as an "
+          'extension. Built-in types are: ${builtinTypes.join(", ")}. '
+          'Use a custom wrapper class instead.',
+        );
       }
 
-      throw ArgumentError(
-        "Type '$T' is a built-in type and cannot be registered as an "
-        'extension. Built-in types are: ${builtinTypes.join(", ")}. '
-        'Use a custom wrapper class instead.',
-      );
+      if (!isGroup) {
+        if (T == Object || T == dynamic || <Object?>[] is List<T>) {
+          throw ArgumentError(
+            "Cannot register extension for base type '$T'. "
+            'You must specify a concrete custom class. '
+            'If you need polymorphism, use registerGroup.',
+          );
+        }
+      }
+
+      return true;
     }(), 'Invalid extension type');
 
     if (_decoderMap.containsKey(extId)) {
-      throw MessagePackError('Extension with id $extId already registered');
+      throw MessagePackException('Extension with id $extId already registered');
     }
 
     final ext = _Extension(
@@ -163,10 +191,11 @@ class MessagePack extends Codec<dynamic, Uint8List>
 
     builder(group);
 
-    register<Base>(
+    _registerInternal<Base>(
       extId: extId,
       encoder: (value, context) => _enc(value, context, group),
       decoder: (data, context) => _dec(data, context, group) as Base,
+      isGroup: true,
     );
   }
 
@@ -176,7 +205,7 @@ class MessagePack extends Codec<dynamic, Uint8List>
     MessagePackGroup group,
   ) {
     if (data.isEmpty) {
-      throw MessagePackError('Empty group data');
+      throw MessagePackException('Empty group data');
     }
 
     final reader = BinaryReader(data);
@@ -193,11 +222,12 @@ class MessagePack extends Codec<dynamic, Uint8List>
   ) {
     final (subId, payload) = group._encode(value, context);
 
-    final writer = BinaryWriterPool.acquire(payload.length + 5)
-      ..writeVarUint(subId)
-      ..writeBytes(payload);
+    final writer = BinaryWriterPool.acquire(payload.length + 5);
 
     try {
+      writer
+        ..writeVarUint(subId)
+        ..writeBytes(payload);
       return writer.takeBytes();
     } finally {
       BinaryWriterPool.release(writer);
@@ -209,9 +239,14 @@ class MessagePack extends Codec<dynamic, Uint8List>
     final s = Serializer(
       extEncoder: this,
       initialBufferSize: defaultBufferSize,
-    )..encode(value);
+    );
 
-    return s.takeBytes();
+    try {
+      s.encode(value);
+      return s.takeBytes();
+    } finally {
+      s.dispose();
+    }
   }
 
   @override
@@ -221,13 +256,15 @@ class MessagePack extends Codec<dynamic, Uint8List>
       initialBufferSize: defaultBufferSize,
     );
 
-    for (final value in values) {
-      s.encode(value);
+    try {
+      for (final value in values) {
+        s.encode(value);
+      }
+
+      return s.takeBytes();
+    } finally {
+      s.dispose();
     }
-
-    final result = s.takeBytes();
-
-    return result;
   }
 
   @override
@@ -238,8 +275,7 @@ class MessagePack extends Codec<dynamic, Uint8List>
       preserveMapOrder: false,
     );
 
-    final result = d.decode() as T;
-    return result;
+    return d.decode() as T;
   }
 
   @override
@@ -250,7 +286,7 @@ class MessagePack extends Codec<dynamic, Uint8List>
       preserveMapOrder: false,
     );
 
-    final results = <Object?>[];
+    final results = <dynamic>[];
     while (d.hasBytesAvailable) {
       final value = d.decode();
       results.add(value);
@@ -388,7 +424,7 @@ class MessagePackGroup {
   Object? _decode(int id, Uint8List data, MessagePackContext context) {
     final ext = _decoders[id];
     if (ext == null) {
-      throw MessagePackError('Decoder for subtype id $id not found');
+      throw MessagePackException('Decoder for subtype id $id not found');
     }
 
     return ext.decode(data, context);

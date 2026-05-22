@@ -13,11 +13,11 @@ import 'dart:collection';
 import 'dart:typed_data';
 
 import 'src/core/deserializer.dart';
-import 'src/core/error.dart';
+import 'src/core/exception.dart';
 import 'src/core/serializer.dart';
 
 export 'src/core/deserializer.dart';
-export 'src/core/error.dart';
+export 'src/core/exception.dart';
 export 'src/core/serializer.dart';
 export 'src/message_pack.dart';
 
@@ -38,7 +38,7 @@ export 'src/message_pack.dart';
 /// [initialBufferSize] determines the starting capacity of the internal
 /// encoder buffer (default is 1024 bytes).
 ///
-/// Throws a [MessagePackError] if serialization fails.
+/// Throws a [MessagePackException] if serialization fails.
 Uint8List serialize(
   Object? value, {
   ExtEncoder? extEncoder,
@@ -47,11 +47,14 @@ Uint8List serialize(
   final s = Serializer(
     extEncoder: extEncoder,
     initialBufferSize: initialBufferSize,
-  )..encode(value);
+  );
 
-  final result = s.takeBytes();
-
-  return result;
+  try {
+    s.encode(value);
+    return s.takeBytes();
+  } finally {
+    s.dispose();
+  }
 }
 
 /// Serializes a sequence of [values] into a single MessagePack buffer.
@@ -61,7 +64,7 @@ Uint8List serialize(
 ///
 /// [extEncoder] and [initialBufferSize] behave the same as in [serialize].
 ///
-/// Throws a [MessagePackError] if any value fails to serialize.
+/// Throws a [MessagePackException] if any value fails to serialize.
 Uint8List serializeAll(
   Iterable<Object?> values, {
   ExtEncoder? extEncoder,
@@ -72,13 +75,15 @@ Uint8List serializeAll(
     initialBufferSize: initialBufferSize,
   );
 
-  for (final value in values) {
-    s.encode(value);
+  try {
+    for (final value in values) {
+      s.encode(value);
+    }
+
+    return s.takeBytes();
+  } finally {
+    s.dispose();
   }
-
-  final result = s.takeBytes();
-
-  return result;
 }
 
 /// Deserializes a single value from a MessagePack [buffer].
@@ -89,7 +94,7 @@ Uint8List serializeAll(
 /// [preserveMapOrder] if true, uses a [LinkedHashMap] (default Dart Map) to
 /// maintain key order; if false, may use a more performant [HashMap].
 ///
-/// Throws a [MessagePackError] if the buffer contains invalid MessagePack
+/// Throws a [MessagePackException] if the buffer contains invalid MessagePack
 /// data or if the buffer is exhausted prematurely.
 Object? deserialize(
   Uint8List buffer, {
@@ -114,7 +119,7 @@ Object? deserialize(
 ///
 /// [extDecoder] and [preserveMapOrder] behave the same as in [deserialize].
 ///
-/// Throws a [MessagePackError] if any part of the buffer contains invalid
+/// Throws a [MessagePackException] if any part of the buffer contains invalid
 /// MessagePack data.
 List<Object?> deserializeAll(
   Uint8List buffer, {

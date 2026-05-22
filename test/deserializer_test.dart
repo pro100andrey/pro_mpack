@@ -20,7 +20,7 @@ void main() {
     expect(
       () => deserialize(buffer),
       throwsA(
-        isA<MessagePackError>().having(
+        isA<MessagePackException>().having(
           (e) => e.message,
           'message',
           contains('reserved and never used'),
@@ -38,7 +38,7 @@ void main() {
     expect(
       () => deserialize(buffer),
       throwsA(
-        isA<MessagePackError>().having(
+        isA<MessagePackException>().having(
           (e) => e.message,
           'message',
           contains('reserved and never used'),
@@ -56,7 +56,7 @@ void main() {
     expect(
       () => deserialize(buffer),
       throwsA(
-        isA<MessagePackError>().having(
+        isA<MessagePackException>().having(
           (e) => e.message,
           'message',
           contains('reserved and never used'),

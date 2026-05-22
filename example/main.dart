@@ -4,15 +4,13 @@
 import 'package:pro_mpack/message_pack.dart';
 
 void main() {
-  final mpack = MessagePack(
+  final mp = MessagePack(
     extensions: (config) {
       config
-        ..register<BigInt>(
-          extId: 1,
-          encoder: BigIntMessagePack.encode,
-          decoder: BigIntMessagePack.decode,
-        )
-        // Declarative registration of models group
+        // Register a custom codec for BigInt, which is not natively
+        // supported by MessagePack
+        ..registerBigInt()
+        // Group for user-related types
         ..registerGroup<dynamic>(
           extId: 2,
           builder: (group) => group
@@ -42,8 +40,8 @@ void main() {
     ],
   );
 
-  final userBytes = mpack.pack(user);
-  final decodedUser = mpack.unpack<User>(userBytes);
+  final userBytes = mp.pack(user);
+  final decodedUser = mp.unpack<User>(userBytes);
 
   print('Decoded User: $decodedUser');
   print('Bytes: ${userBytes.length}');
@@ -107,17 +105,12 @@ class Product {
       'Product(title: $title, description: $description, price: $price)';
 }
 
-extension BigIntMessagePack on BigInt {
-  static Uint8List encode(BigInt value, MessagePackContext ctx) {
-    final str = value.toString();
-
-    return ctx.pack(str);
-  }
-
-  static BigInt decode(Uint8List data, MessagePackContext ctx) {
-    final str = ctx.unpack<String>(data);
-    return BigInt.parse(str);
-  }
+extension BigIntMessagePack on MessagePack {
+  void registerBigInt() => register<BigInt>(
+    extId: 1,
+    encoder: (value, ctx) => ctx.pack(value.toString()),
+    decoder: (data, ctx) => BigInt.parse(ctx.unpack<String>(data)),
+  );
 }
 
 extension UserMessagePackGroup on MessagePackGroup {

@@ -1,7 +1,7 @@
-/// Error thrown when a MessagePack serialization or deserialization
+/// Exception thrown when a MessagePack serialization or deserialization
 /// operation fails.
 ///
-/// This error is thrown in various scenarios:
+/// This exception is thrown in various scenarios:
 /// - Invalid MessagePack format encountered during deserialization
 /// - Data structures exceeding MessagePack size limits
 /// - Unsupported types during serialization
@@ -12,19 +12,19 @@
 /// ```dart
 /// try {
 ///   final data = deserialize(invalidBytes);
-/// } on MessagePackError catch (e) {
+/// } on MessagePackException catch (e) {
 ///   print('Failed to deserialize: ${e.message}');
 /// }
 /// ```
-class MessagePackError extends Error {
-  /// Creates a [MessagePackError] with an optional [message].
+class MessagePackException implements Exception {
+  /// Creates a [MessagePackException] with an optional [message].
   ///
   /// [message]: A description of what went wrong during the operation.
-  MessagePackError(this.message);
+  MessagePackException(this.message);
 
-  /// The error message.
+  /// The exception message.
   final String message;
 
   @override
-  String toString() => 'MessagePackError: $message';
+  String toString() => 'MessagePackException: $message';
 }

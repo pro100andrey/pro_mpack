@@ -426,7 +426,7 @@ void main() {
   });
 
   test('throws exception when serializing unsupported object', () {
-    expect(() => serialize(Object()), throwsA(isA<MessagePackError>()));
+    expect(() => serialize(Object()), throwsA(isA<MessagePackException>()));
   });
 
   test('serializes int beyond fixint range correctly', () {
@@ -448,7 +448,7 @@ void main() {
     final extEncoder = TestExtEncoder();
     expect(
       () => serialize(RegExp(''), extEncoder: extEncoder),
-      throwsA(isA<MessagePackError>()),
+      throwsA(isA<MessagePackException>()),
     );
   });
 

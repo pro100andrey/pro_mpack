@@ -7,7 +7,7 @@ import 'dart:typed_data';
 import 'package:pro_binary/pro_binary.dart';
 
 import 'constants.dart';
-import 'error.dart';
+import 'exception.dart';
 
 /// A mixin that defines the interface for decoding custom extension types.
 ///
@@ -22,7 +22,7 @@ abstract mixin class ExtDecoder {
   ///
   /// Returns the decoded Dart object.
   ///
-  /// Throws a [MessagePackError] if decoding fails or if the extension type
+  /// Throws a [MessagePackException] if decoding fails or if the extension type
   /// is not recognized.
   Object? decodeObject(int extType, Uint8List data);
 }
@@ -79,7 +79,7 @@ class Deserializer {
   /// - timestamp -> `DateTime`
   /// - Custom types via [ExtDecoder]
   ///
-  /// Throws a [MessagePackError] if the data is invalid or the buffer ends
+  /// Throws a [MessagePackException] if the data is invalid or the buffer ends
   /// unexpectedly.
   Object? decode() {
     final u = _reader.readUint8();
@@ -212,13 +212,13 @@ class Deserializer {
 
       // Never used (0xc1): reserved by MessagePack specification
       case fNeverUsed:
-        throw MessagePackError(
+        throw MessagePackException(
           'Invalid format byte 0xc1: this value is reserved and never used '
           'in MessagePack specification',
         );
       // Default case: invalid MessagePack format
       default:
-        throw MessagePackError('Invalid MessagePack format');
+        throw MessagePackException('Invalid MessagePack format');
     }
   }
 
@@ -284,7 +284,7 @@ class Deserializer {
         final microseconds = seconds * 1000000 + nanoSeconds ~/ 1000;
         return .fromMicrosecondsSinceEpoch(microseconds, isUtc: true);
       default:
-        throw MessagePackError('Invalid timestamp length: $length');
+        throw MessagePackException('Invalid timestamp length: $length');
     }
   }
 }

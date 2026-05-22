@@ -6,7 +6,7 @@ import 'dart:typed_data';
 import 'package:pro_binary/pro_binary.dart';
 
 import 'constants.dart';
-import 'error.dart';
+import 'exception.dart';
 
 /// A mixin that defines the interface for encoding custom extension types.
 ///
@@ -29,7 +29,7 @@ abstract mixin class ExtEncoder {
   ///
   /// Returns a [Uint8List] containing the encoded bytes.
   ///
-  /// Throws a [MessagePackError] if encoding fails.
+  /// Throws a [MessagePackException] if encoding fails.
   Uint8List encodeObject(Object? object);
 }
 
@@ -97,7 +97,7 @@ class Serializer {
   /// - `DateTime` -> timestamp extension (-1)
   /// - Custom types via [ExtEncoder]
   ///
-  /// Throws a [MessagePackError] if the value type is not supported or
+  /// Throws a [MessagePackException] if the value type is not supported or
   /// if collection sizes exceed MessagePack limits.
   void encode(Object? value) {
     switch (value) {
@@ -132,7 +132,7 @@ class Serializer {
       case _ when _extEncoder != null && writeExt(value):
         return;
       case _:
-        throw MessagePackError("Don't know how to serialize $value");
+        throw MessagePackException("Don't know how to serialize $value");
     }
   }
 
@@ -235,7 +235,7 @@ class Serializer {
           ..writeUint8(fStr32)
           ..writeUint32(length);
       default:
-        throw MessagePackError(
+        throw MessagePackException(
           'String is too long to be serialized with messagePack.',
         );
     }
@@ -261,7 +261,7 @@ class Serializer {
           ..writeUint8(fBin32)
           ..writeUint32(length);
       default:
-        throw MessagePackError(
+        throw MessagePackException(
           'Data is too long to be serialized with messagePack.',
         );
     }
@@ -285,7 +285,7 @@ class Serializer {
           ..writeUint8(fArray32)
           ..writeUint32(length);
       default:
-        throw MessagePackError(
+        throw MessagePackException(
           'Array is too big to be serialized with messagePack',
         );
     }
@@ -318,7 +318,7 @@ class Serializer {
           ..writeUint8(fMap32)
           ..writeUint32(length);
       default:
-        throw MessagePackError(
+        throw MessagePackException(
           'Map is too big to be serialized with messagePack',
         );
     }
@@ -335,13 +335,13 @@ class Serializer {
 
     if (type != null) {
       if (type < -128 || type > 127) {
-        throw MessagePackError('Type must be in the range of -128 to 127');
+        throw MessagePackException('Type must be in the range of -128 to 127');
       }
 
       final encoded = _extEncoder?.encodeObject(object);
 
       if (encoded == null) {
-        throw MessagePackError(
+        throw MessagePackException(
           'Unable to encode object. No Encoder specified.',
         );
       }
@@ -372,7 +372,7 @@ class Serializer {
             ..writeUint8(fExt32) // ext32
             ..writeUint32(length);
         case _:
-          throw MessagePackError('Size must be at most $limitUint32');
+          throw MessagePackException('Size must be at most $limitUint32');
       }
 
       _writer
