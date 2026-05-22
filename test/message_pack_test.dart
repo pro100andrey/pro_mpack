@@ -118,7 +118,7 @@ void main() {
         );
       });
 
-      test('throws MessagePackConfigurationException for String (Object?)', () {
+      test('throws MessagePackConfigurationException for Object? (base type)', () {
         expect(
           () => MessagePack(
             extensions: (c) => c.register<Object?>(
