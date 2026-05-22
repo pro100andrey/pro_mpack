@@ -7,10 +7,12 @@
 ///
 /// For most use cases, the [serialize] and [deserialize] functions are
 /// sufficient. For custom types, use [ExtEncoder] and [ExtDecoder].
+///
+/// @docImport 'dart:collection';
 library;
 
-import 'dart:collection';
-import 'dart:typed_data';
+// import 'dart:collection';
+import 'dart:typed_data' show Uint8List;
 
 import 'src/core/deserializer.dart';
 import 'src/core/exception.dart';

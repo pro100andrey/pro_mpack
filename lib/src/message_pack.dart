@@ -397,11 +397,6 @@ class MessagePackGroup {
     required Encoder<T> encoder,
     required Decoder<T> decoder,
   }) {
-    assert(
-      T is! int || T is! DateTime,
-      'int and DateTime are reserved for built-in extensions',
-    );
-
     final ext = _Extension(
       id: subId,
       canHandle: (v) => v is T,

@@ -48,7 +48,8 @@ void main() {
   final bytes = mpack.pack(data);
   print('Serialized to ${bytes.length} bytes');
 
-  final decoded = mpack.unpack<Map<String, dynamic>>(bytes);
+  // Unpack and cast if needed
+  final decoded = mpack.unpack<Map>(bytes);
   print(decoded); // {name: Alice, age: 30, ...}
 }
 ```
@@ -96,8 +97,8 @@ final mpack = MessagePack(
       decoder: (bytes, ctx) => BigInt.parse(ctx.unpack<String>(bytes)),
     );
 
-    // Register a group of related types (saves Extension IDs)
-    config.registerGroup(
+    // Register a group of related types under a common base class
+    config.registerGroup<dynamic>(
       extId: 2,
       builder: (group) {
         group.add<Address>(
@@ -167,6 +168,33 @@ By default, `double` values are serialized as 64-bit floats. Use the `Float` wra
 
 ```dart
 final bytes = mpack.pack(Float(3.14)); // Serialized as float32
+```
+
+## Error Handling
+
+`pro_mpack` uses a modern `sealed` exception hierarchy (Dart 3.10+), providing granular control over error handling and actionable suggestions to fix issues.
+
+```dart
+try {
+  final result = deserialize(corruptedBytes);
+} on MessagePackException catch (e) {
+  // Use pattern matching for exhaustive error handling
+  switch (e) {
+    case MessagePackFormatException():
+      print('Binary data is invalid: ${e.message}');
+    case MessagePackUnsupportedTypeException():
+      print('No encoder for type: ${e.unsupportedType}');
+    case MessagePackSizeException():
+      print('Data exceeds 4GB limit: ${e.message}');
+    case MessagePackConfigurationException():
+      print('Invalid extension setup: ${e.message}');
+  }
+  
+  // Every exception includes a helpful suggestion
+  if (e.suggestion != null) {
+    print('💡 Suggestion: ${e.suggestion}');
+  }
+}
 ```
 
 ## Testing
