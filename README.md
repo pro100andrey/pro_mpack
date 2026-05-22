@@ -20,6 +20,7 @@ MessagePack is an efficient binary serialization format that's smaller and faste
 🔧 **Flexible & Extensible**
 - Easy custom extension support with recursive packing/unpacking
 - Built-in `DateTime` timestamp support
+- **Float wrapper**: Force 32-bit float serialization with `Float`
 - **Groups**: Organise multiple related types under a single extension ID (great for polymorphism)
 - Reusable serializer/deserializer engines for low-level control
 
@@ -35,18 +36,47 @@ MessagePack is an efficient binary serialization format that's smaller and faste
 import 'package:pro_mpack/pro_mpack.dart';
 
 void main() {
-  // Use the default instance for standard types
+  // Create a MessagePack instance
+  final mpack = MessagePack();
+
   final data = {
     'name': 'Alice',
     'age': 30,
     'scores': [95, 87, 92],
   };
-  
-  final bytes = msgpack.pack(data);
+
+  final bytes = mpack.pack(data);
   print('Serialized to ${bytes.length} bytes');
-  
-  final decoded = msgpack.unpack(bytes);
+
+  final decoded = mpack.unpack<Map<String, dynamic>>(bytes);
   print(decoded); // {name: Alice, age: 30, ...}
+}
+```
+
+### Simple Functions
+
+For quick serialization without creating an instance, use the top-level functions:
+
+```dart
+import 'package:pro_mpack/pro_mpack.dart';
+
+void main() {
+  // Single value serialization/deserialization
+  final bytes = serialize({'key': 'value', 'count': 42});
+  final decoded = deserialize(bytes);
+  print(decoded); // {key: value, count: 42}
+
+  // Multiple values serialized to a single buffer
+  final multiBytes = serializeAll([1, 'hello', true, {'nested': true}]);
+  final decodedAll = deserializeAll(multiBytes);
+  print(decodedAll); // [1, hello, true, {nested: true}]
+
+  // Optional parameters
+  final withBuffer = serialize({'data': 'large'}, initialBufferSize: 2048);
+  final withMapOrder = deserialize(
+    serialize({'z': 1, 'a': 2}),
+    preserveMapOrder: true, // preserves insertion order
+  );
 }
 ```
 
@@ -63,15 +93,15 @@ final mpack = MessagePack(
     config.register<BigInt>(
       extId: 1,
       encoder: (val, ctx) => ctx.pack(val.toString()),
-      decoder: (bytes, ctx) => BigInt.parse(ctx.unpack<String>(bytes)!),
+      decoder: (bytes, ctx) => BigInt.parse(ctx.unpack<String>(bytes)),
     );
 
     // Register a group of related types (saves Extension IDs)
-    config.registerGroup<dynamic>(
+    config.registerGroup<Address>(
       extId: 2,
       builder: (group) {
         group.add<Address>(
-          id: 1,
+          subId: 1,
           encoder: (addr, ctx) => ctx.packAll([addr.street, addr.city]),
           decoder: (data, ctx) {
             final [street as String, city as String] = ctx.unpackAll(data);
@@ -82,6 +112,12 @@ final mpack = MessagePack(
     );
   },
 );
+
+class Address {
+  const Address({required this.street, required this.city});
+  final String street;
+  final String city;
+}
 ```
 
 ### 2. Imperative Approach
@@ -100,31 +136,46 @@ mpack.register<MyType>(
 
 ### 3. Sub-registries (Groups)
 
-The `registerGroup` feature allows you to group multiple types under a single MessagePack extension ID (from -128 to 127). This is highly efficient and helps organize complex object hierarchies.
+MessagePack extension IDs are limited to the range -128 to 127 (256 values total). When you have many related types or polymorphic hierarchies, registering each type separately quickly exhausts this space. `registerGroup` solves this by letting you group multiple subtypes under a single extension ID — each subtype uses an internal `subId` to distinguish itself.
 
-## API Reference
+This is ideal for:
+- **Polymorphic types**: A base class with many subclasses (e.g., `Shape` → `Circle`, `Square`, `Triangle`)
+- **Organized type families**: Related models that share a namespace (e.g., all `User`-related types)
+- **ID conservation**: Reducing the number of extension IDs consumed when you have many small types
 
-### Main Class: `MessagePack`
+```dart
+mpack.registerGroup<Shape>(
+  extId: 20,
+  builder: (group) {
+    group.add<Circle>(
+      subId: 1,
+      encoder: (c, ctx) => ctx.pack(c.radius),
+      decoder: (d, ctx) => Circle(ctx.unpack(d)),
+    );
+    group.add<Square>(
+      subId: 2,
+      encoder: (s, ctx) => ctx.pack(s.side),
+      decoder: (d, ctx) => Square(ctx.unpack(d)),
+    );
+  },
+);
+```
 
-- `pack(Object? value)` -> `Uint8List`
-- `unpack<T>(Uint8List data)` -> `T?`
-- `packAll(Iterable<Object?> values)` -> `Uint8List`
-- `unpackAll(Uint8List data)` -> `List<Object?>`
-- `register<T>({required int extId, required encoder, required decoder})`
-- `registerGroup<Base>({required int extId, required builder})`
+### 4. Float Wrapper
 
-### Global Functions (for simple cases)
+By default, `double` values are serialized as 64-bit floats. Use the `Float` wrapper for 32-bit:
 
-- `serialize(value)` - Alias for `msgpack.pack`
-- `deserialize(bytes)` - Alias for `msgpack.unpack`
+```dart
+final bytes = mpack.pack(Float(3.14)); // Serialized as float32
+```
 
 ## Benchmarks
 
 The library is designed for maximum throughput. Run performance tests with:
 
 ```bash
-dart run test/serializer_performance_test.dart
-dart run test/deserializer_performance_test.dart
+dart test test/serializer_performance_test.dart
+dart test test/deserializer_performance_test.dart
 ```
 
 ## License
