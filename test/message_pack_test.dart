@@ -114,7 +114,7 @@ void main() {
               decoder: (d, ctx) => ctx.unpack<int>(d),
             ),
           ),
-          throwsArgumentError,
+          throwsA(isA<MessagePackConfigurationException>()),
         );
       });
 
@@ -127,7 +127,7 @@ void main() {
               decoder: (d, ctx) => ctx.unpack<String>(d),
             ),
           ),
-          throwsArgumentError,
+          throwsA(isA<MessagePackConfigurationException>()),
         );
       });
 
@@ -140,7 +140,7 @@ void main() {
               decoder: (d, ctx) => ctx.unpack<String>(d),
             ),
           ),
-          throwsArgumentError,
+          throwsA(isA<MessagePackConfigurationException>()),
         );
       });
 
@@ -153,7 +153,7 @@ void main() {
               decoder: (d, ctx) => ctx.unpack<bool>(d),
             ),
           ),
-          throwsArgumentError,
+          throwsA(isA<MessagePackConfigurationException>()),
         );
       });
 
@@ -166,7 +166,7 @@ void main() {
               decoder: (d, ctx) => ctx.unpack<double>(d),
             ),
           ),
-          throwsArgumentError,
+          throwsA(isA<MessagePackConfigurationException>()),
         );
       });
 
@@ -179,7 +179,7 @@ void main() {
               decoder: (d, ctx) => ctx.unpack<List<dynamic>>(d),
             ),
           ),
-          throwsArgumentError,
+          throwsA(isA<MessagePackConfigurationException>()),
         );
       });
 
@@ -192,7 +192,7 @@ void main() {
               decoder: (d, ctx) => ctx.unpack<Map<dynamic, dynamic>>(d),
             ),
           ),
-          throwsArgumentError,
+          throwsA(isA<MessagePackConfigurationException>()),
         );
       });
 
@@ -205,7 +205,7 @@ void main() {
               decoder: (d, ctx) => ctx.unpack<Set<dynamic>>(d),
             ),
           ),
-          throwsArgumentError,
+          throwsA(isA<MessagePackConfigurationException>()),
         );
       });
 
@@ -218,7 +218,7 @@ void main() {
               decoder: (d, ctx) => ctx.unpack<Uint8List>(d),
             ),
           ),
-          throwsArgumentError,
+          throwsA(isA<MessagePackConfigurationException>()),
         );
       });
 
@@ -231,7 +231,7 @@ void main() {
               decoder: (d, ctx) => ctx.unpack<ByteData>(d),
             ),
           ),
-          throwsArgumentError,
+          throwsA(isA<MessagePackConfigurationException>()),
         );
       });
 
@@ -244,7 +244,7 @@ void main() {
               decoder: (d, ctx) => ctx.unpack<DateTime>(d),
             ),
           ),
-          throwsArgumentError,
+          throwsA(isA<MessagePackConfigurationException>()),
         );
       });
 
@@ -257,7 +257,7 @@ void main() {
               decoder: (d, ctx) => Float(ctx.unpack<double>(d)),
             ),
           ),
-          throwsArgumentError,
+          throwsA(isA<MessagePackConfigurationException>()),
         );
       });
     });
@@ -277,7 +277,7 @@ void main() {
               },
             ),
           ),
-          throwsArgumentError,
+          throwsA(isA<MessagePackConfigurationException>()),
         );
       });
 
@@ -295,7 +295,7 @@ void main() {
               },
             ),
           ),
-          throwsArgumentError,
+          throwsA(isA<MessagePackConfigurationException>()),
         );
       });
 
@@ -313,7 +313,7 @@ void main() {
               },
             ),
           ),
-          throwsArgumentError,
+          throwsA(isA<MessagePackConfigurationException>()),
         );
       });
 
@@ -331,7 +331,7 @@ void main() {
               },
             ),
           ),
-          throwsArgumentError,
+          throwsA(isA<MessagePackConfigurationException>()),
         );
       });
     });

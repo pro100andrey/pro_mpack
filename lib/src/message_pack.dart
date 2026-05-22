@@ -124,19 +124,20 @@ class MessagePack extends Codec<dynamic, Uint8List>
       bool isBuiltIn(Type type) => builtinTypes.contains(type);
 
       if (isBuiltIn(T)) {
-        throw ArgumentError(
+        throw MessagePackConfigurationException(
           "Type '$T' is a built-in type and cannot be registered as an "
-          'extension. Built-in types are: ${builtinTypes.join(", ")}. '
-          'Use a custom wrapper class instead.',
+              'extension.',
+          'Built-in types are: ${builtinTypes.join(", ")}. '
+              'Use a custom wrapper class instead.',
         );
       }
 
       if (!isGroup) {
         if (T == Object || T == dynamic || <Object?>[] is List<T>) {
-          throw ArgumentError(
-            "Cannot register extension for base type '$T'. "
+          throw MessagePackConfigurationException(
+            "Cannot register extension for base type '$T'.",
             'You must specify a concrete custom class. '
-            'If you need polymorphism, use registerGroup.',
+                'If you need polymorphism, use registerGroup.',
           );
         }
       }
@@ -351,7 +352,11 @@ class MessagePack extends Codec<dynamic, Uint8List>
   Object? decodeObject(int extType, Uint8List data) {
     final ext = _decoderMap[extType];
     if (ext == null) {
-      throw Exception('No decoder for extension $extType');
+      throw MessagePackConfigurationException(
+        'No decoder for extension $extType.',
+        'Ensure the extension is registered using register() or '
+            'registerGroup().',
+      );
     }
 
     return ext.decode(data, this);
@@ -425,7 +430,10 @@ class MessagePackGroup {
     }
 
     if (ext == null) {
-      throw Exception('Subtype $type not registered in group');
+      throw MessagePackConfigurationException(
+        'Subtype $type not registered in group.',
+        'Ensure the subtype is added to the group using group.add().',
+      );
     }
 
     return (ext.id, ext.encode(value, context));

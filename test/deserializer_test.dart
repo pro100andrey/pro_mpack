@@ -6,7 +6,6 @@ import 'package:test/test.dart';
 import 'utils/utils.dart';
 
 void main() {
-
   // Nil format
   test('deserializes nil format correctly', () {
     final buffer = Uint8List.fromList([0xc0 /* nil */]);
