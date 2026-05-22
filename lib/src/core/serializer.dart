@@ -135,7 +135,8 @@ class Serializer {
         throw MessagePackUnsupportedTypeException(
           value.runtimeType,
           "Don't know how to serialize $value",
-          'Register an ExtEncoder for this type or use a standard supported type.',
+          'Register an ExtEncoder for this type or'
+              ' use a standard supported type.',
         );
     }
   }

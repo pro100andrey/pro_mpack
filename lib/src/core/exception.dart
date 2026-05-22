@@ -31,9 +31,12 @@ sealed class MessagePackException implements Exception {
   /// An optional actionable suggestion on how to fix the error.
   final String? suggestion;
 
+  /// The name of the exception, used in [toString].
+  String get name => 'MessagePackException';
+
   @override
   String toString() {
-    final buffer = StringBuffer('MessagePackException: $message');
+    final buffer = StringBuffer('$name: $message');
     if (suggestion != null) {
       buffer.write('\nSuggestion: $suggestion');
     }
@@ -50,13 +53,7 @@ class MessagePackFormatException extends MessagePackException {
   const MessagePackFormatException(super.message, [super.suggestion]);
 
   @override
-  String toString() {
-    final buffer = StringBuffer('MessagePackFormatException: $message');
-    if (suggestion != null) {
-      buffer.write('\nSuggestion: $suggestion');
-    }
-    return buffer.toString();
-  }
+  String get name => 'MessagePackFormatException';
 }
 
 /// Thrown when attempting to serialize an object that isn't supported.
@@ -75,15 +72,7 @@ class MessagePackUnsupportedTypeException extends MessagePackException {
   final Type unsupportedType;
 
   @override
-  String toString() {
-    final buffer = StringBuffer(
-      'MessagePackUnsupportedTypeException: $message',
-    );
-    if (suggestion != null) {
-      buffer.write('\nSuggestion: $suggestion');
-    }
-    return buffer.toString();
-  }
+  String get name => 'MessagePackUnsupportedTypeException';
 }
 
 /// Thrown when a string, collection, or binary blob exceeds MessagePack limits.
@@ -94,13 +83,7 @@ class MessagePackSizeException extends MessagePackException {
   const MessagePackSizeException(super.message, [super.suggestion]);
 
   @override
-  String toString() {
-    final buffer = StringBuffer('MessagePackSizeException: $message');
-    if (suggestion != null) {
-      buffer.write('\nSuggestion: $suggestion');
-    }
-    return buffer.toString();
-  }
+  String get name => 'MessagePackSizeException';
 }
 
 /// Thrown when there's an error in the custom extension configuration.
@@ -112,11 +95,5 @@ class MessagePackConfigurationException extends MessagePackException {
   const MessagePackConfigurationException(super.message, [super.suggestion]);
 
   @override
-  String toString() {
-    final buffer = StringBuffer('MessagePackConfigurationException: $message');
-    if (suggestion != null) {
-      buffer.write('\nSuggestion: $suggestion');
-    }
-    return buffer.toString();
-  }
+  String get name => 'MessagePackConfigurationException';
 }
