@@ -105,7 +105,7 @@ void main() {
     });
 
     group('register built-in type validation', () {
-      test('throws ArgumentError for int', () {
+      test('throws MessagePackConfigurationException for int', () {
         expect(
           () => MessagePack(
             extensions: (c) => c.register<int>(
@@ -118,7 +118,7 @@ void main() {
         );
       });
 
-      test('throws ArgumentError for String (Object?)', () {
+      test('throws MessagePackConfigurationException for String (Object?)', () {
         expect(
           () => MessagePack(
             extensions: (c) => c.register<Object?>(
@@ -131,7 +131,7 @@ void main() {
         );
       });
 
-      test('throws ArgumentError for String', () {
+      test('throws MessagePackConfigurationException for String', () {
         expect(
           () => MessagePack(
             extensions: (c) => c.register<String>(
@@ -144,7 +144,7 @@ void main() {
         );
       });
 
-      test('throws ArgumentError for bool', () {
+      test('throws MessagePackConfigurationException for bool', () {
         expect(
           () => MessagePack(
             extensions: (c) => c.register<bool>(
@@ -157,7 +157,7 @@ void main() {
         );
       });
 
-      test('throws ArgumentError for double', () {
+      test('throws MessagePackConfigurationException for double', () {
         expect(
           () => MessagePack(
             extensions: (c) => c.register<double>(
@@ -170,7 +170,7 @@ void main() {
         );
       });
 
-      test('throws ArgumentError for List', () {
+      test('throws MessagePackConfigurationException for List', () {
         expect(
           () => MessagePack(
             extensions: (c) => c.register<List<dynamic>>(
@@ -183,7 +183,7 @@ void main() {
         );
       });
 
-      test('throws ArgumentError for Map', () {
+      test('throws MessagePackConfigurationException for Map', () {
         expect(
           () => MessagePack(
             extensions: (c) => c.register<Map<dynamic, dynamic>>(
@@ -196,7 +196,7 @@ void main() {
         );
       });
 
-      test('throws ArgumentError for Set', () {
+      test('throws MessagePackConfigurationException for Set', () {
         expect(
           () => MessagePack(
             extensions: (c) => c.register<Set<dynamic>>(
@@ -209,7 +209,7 @@ void main() {
         );
       });
 
-      test('throws ArgumentError for Uint8List', () {
+      test('throws MessagePackConfigurationException for Uint8List', () {
         expect(
           () => MessagePack(
             extensions: (c) => c.register<Uint8List>(
@@ -222,7 +222,7 @@ void main() {
         );
       });
 
-      test('throws ArgumentError for ByteData', () {
+      test('throws MessagePackConfigurationException for ByteData', () {
         expect(
           () => MessagePack(
             extensions: (c) => c.register<ByteData>(
@@ -235,7 +235,7 @@ void main() {
         );
       });
 
-      test('throws ArgumentError for DateTime', () {
+      test('throws MessagePackConfigurationException for DateTime', () {
         expect(
           () => MessagePack(
             extensions: (c) => c.register<DateTime>(
@@ -248,7 +248,7 @@ void main() {
         );
       });
 
-      test('throws ArgumentError for Float', () {
+      test('throws MessagePackConfigurationException for Float', () {
         expect(
           () => MessagePack(
             extensions: (c) => c.register<Float>(
@@ -263,7 +263,7 @@ void main() {
     });
 
     group('registerGroup built-in type validation', () {
-      test('throws ArgumentError for DateTime', () {
+      test('throws MessagePackConfigurationException for DateTime', () {
         expect(
           () => MessagePack(
             extensions: (c) => c.registerGroup<DateTime>(
@@ -281,7 +281,7 @@ void main() {
         );
       });
 
-      test('throws ArgumentError for int', () {
+      test('throws MessagePackConfigurationException for int', () {
         expect(
           () => MessagePack(
             extensions: (c) => c.registerGroup<int>(
@@ -299,7 +299,7 @@ void main() {
         );
       });
 
-      test('throws ArgumentError for String', () {
+      test('throws MessagePackConfigurationException for String', () {
         expect(
           () => MessagePack(
             extensions: (c) => c.registerGroup<String>(
@@ -317,7 +317,7 @@ void main() {
         );
       });
 
-      test('throws ArgumentError for List', () {
+      test('throws MessagePackConfigurationException for List', () {
         expect(
           () => MessagePack(
             extensions: (c) => c.registerGroup<List<dynamic>>(

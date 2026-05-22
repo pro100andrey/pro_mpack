@@ -14,12 +14,12 @@ void main() {
   });
 
   // Never used format (reserved)
-  test('throws error on reserved byte 0xc1', () {
+  test('throws MessagePackFormatException on reserved byte 0xc1', () {
     final buffer = Uint8List.fromList([0xc1 /* never used */]);
     expect(
       () => deserialize(buffer),
       throwsA(
-        isA<MessagePackException>().having(
+        isA<MessagePackFormatException>().having(
           (e) => e.message,
           'message',
           contains('reserved and never used'),
@@ -28,7 +28,7 @@ void main() {
     );
   });
 
-  test('throws error on 0xc1 in array', () {
+  test('throws MessagePackFormatException on 0xc1 in array', () {
     final buffer = Uint8List.fromList([
       0x92, // fixarray with 2 elements
       0x01, // first element: 1
@@ -37,7 +37,7 @@ void main() {
     expect(
       () => deserialize(buffer),
       throwsA(
-        isA<MessagePackException>().having(
+        isA<MessagePackFormatException>().having(
           (e) => e.message,
           'message',
           contains('reserved and never used'),
@@ -46,7 +46,7 @@ void main() {
     );
   });
 
-  test('throws error on 0xc1 as map value', () {
+  test('throws MessagePackFormatException on 0xc1 as map value', () {
     final buffer = Uint8List.fromList([
       0x81, // fixmap with 1 key-value pair
       0xa3, ...'key'.codeUnits, // key: "key"
@@ -55,7 +55,7 @@ void main() {
     expect(
       () => deserialize(buffer),
       throwsA(
-        isA<MessagePackException>().having(
+        isA<MessagePackFormatException>().having(
           (e) => e.message,
           'message',
           contains('reserved and never used'),
@@ -505,6 +505,35 @@ void main() {
     final result = deserialize(buffer);
     expect(result, <Object?, Object?>{
       'a': {'b': 1},
+    });
+  });
+
+  group('preserveMapOrder', () {
+    test('preserves map order when true', () {
+      final buffer = Uint8List.fromList([
+        0x83, // fixmap(3)
+        0xa1, 0x7a, 1, // "z": 1
+        0xa1, 0x61, 2, // "a": 2
+        0xa1, 0x6d, 3, // "m": 3
+      ]);
+      final result = deserialize(buffer, preserveMapOrder: true)! as Map;
+      expect(result.keys.toList(), ['z', 'a', 'm']);
+    });
+
+    test('does not guarantee map order when false (default)', () {
+      final buffer = Uint8List.fromList([
+        0x83, // fixmap(3)
+        0xa1, 0x7a, 1, // "z": 1
+        0xa1, 0x61, 2, // "a": 2
+        0xa1, 0x6d, 3, // "m": 3
+      ]);
+      final result = deserialize(buffer, preserveMapOrder: false)! as Map;
+      expect(result, isA<Map<dynamic, dynamic>>());
+      expect(result, {
+        'z': 1,
+        'a': 2,
+        'm': 3,
+      });
     });
   });
 

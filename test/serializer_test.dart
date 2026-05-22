@@ -425,9 +425,16 @@ void main() {
     );
   });
 
-  test('throws exception when serializing unsupported object', () {
-    expect(() => serialize(Object()), throwsA(isA<MessagePackException>()));
-  });
+  test(
+    'throws MessagePackUnsupportedTypeException '
+    'when serializing unsupported object',
+    () {
+      expect(
+        () => serialize(Object()),
+        throwsA(isA<MessagePackUnsupportedTypeException>()),
+      );
+    },
+  );
 
   test('serializes int beyond fixint range correctly', () {
     final result = serialize(-33);
@@ -444,13 +451,16 @@ void main() {
     );
   });
 
-  test('throws exception for unsupported ext type', () {
-    final extEncoder = TestExtEncoder();
-    expect(
-      () => serialize(RegExp(''), extEncoder: extEncoder),
-      throwsA(isA<MessagePackException>()),
-    );
-  });
+  test(
+    'throws MessagePackUnsupportedTypeException for unsupported ext type',
+    () {
+      final extEncoder = TestExtEncoder();
+      expect(
+        () => serialize(RegExp(''), extEncoder: extEncoder),
+        throwsA(isA<MessagePackUnsupportedTypeException>()),
+      );
+    },
+  );
 
   test('serializes array with complex objects correctly', () {
     final result = serialize([Float(3.14), 256, true]);
