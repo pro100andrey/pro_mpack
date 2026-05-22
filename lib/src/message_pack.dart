@@ -209,9 +209,10 @@ class MessagePack extends Codec<dynamic, Uint8List>
     MessagePackGroup group,
   ) {
     if (data.isEmpty) {
-      throw const MessagePackFormatException(
+      throw const MessagePackConfigurationException(
         'Empty group data.',
-        'Ensure the encoded group data contains at least a subtype ID.',
+        'Ensure the encoded group data contains at least a subtype ID. '
+            'Check the encoder implementation for this group.',
       );
     }
 
