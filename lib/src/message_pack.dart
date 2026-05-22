@@ -338,7 +338,7 @@ class MessagePack extends Codec<dynamic, Uint8List>
     if (typeId == null) {
       throw MessagePackUnsupportedTypeException(
         object.runtimeType,
-        'No encoder for the provided type.',
+        "No encoder for type '${object.runtimeType}'.",
         'Register an extension for this type before serializing.',
       );
     }
