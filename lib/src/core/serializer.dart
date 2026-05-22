@@ -357,15 +357,15 @@ class Serializer {
         );
     }
 
-    dictionary.forEach((key, value) {
-      encode(key);
-      encode(value);
-    });
+    for (final entry in dictionary.entries) {
+      encode(entry.key);
+      encode(entry.value);
+    }
   }
 
   @pragma('vm:prefer-inline')
-  bool writeExt(Object? object) {
-    final type = _extEncoder?.extTypeForObject(object);
+  bool writeExt(Object? object, [int? resolvedType]) {
+    final type = resolvedType ?? _extEncoder?.extTypeForObject(object);
 
     if (type != null) {
       if (type < -128 || type > 127) {
@@ -480,5 +480,14 @@ class Serializer {
     } finally {
       BinaryWriterPool.release(_writer);
     }
+  }
+
+  /// Disposes of the serializer and releases any resources.
+  ///
+  /// This method should be called when the serializer is no longer needed to
+  /// ensure that any resources (such as buffers) are properly released. After
+  ///  calling this method, the serializer should not be used again.
+  void dispose() {
+    BinaryWriterPool.release(_writer);
   }
 }

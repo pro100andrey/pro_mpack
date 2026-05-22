@@ -13,7 +13,7 @@ void main() {
           decoder: BigIntMessagePack.decode,
         )
         // Declarative registration of models group
-        ..registerGroup(
+        ..registerGroup<dynamic>(
           extId: 2,
           builder: (group) => group
             ..userCodec()
@@ -115,13 +115,13 @@ extension BigIntMessagePack on BigInt {
   }
 
   static BigInt decode(Uint8List data, MessagePackContext ctx) {
-    final str = ctx.unpack<String>(data)!;
+    final str = ctx.unpack<String>(data);
     return BigInt.parse(str);
   }
 }
 
 extension UserMessagePackGroup on MessagePackGroup {
-  void userCodec() => add(
+  void userCodec() => add<User>(
     subId: 100,
     encoder: (user, ctx) {
       final fields = [
@@ -138,7 +138,7 @@ extension UserMessagePackGroup on MessagePackGroup {
       return ctx.packAll(fields);
     },
     decoder: (data, ctx) {
-      final fields = ctx.unpackAll(data);
+      final fields = ctx.unpackAll<Object?>(data);
 
       final [
         id as int,
@@ -166,7 +166,7 @@ extension UserMessagePackGroup on MessagePackGroup {
 }
 
 extension AddressMessagePackGroup on MessagePackGroup {
-  void addressCodec() => add(
+  void addressCodec() => add<Address>(
     subId: 200,
     encoder: (addr, ctx) {
       final fields = [
@@ -178,7 +178,7 @@ extension AddressMessagePackGroup on MessagePackGroup {
       return ctx.packAll(fields);
     },
     decoder: (data, ctx) {
-      final fields = ctx.unpackAll(data);
+      final fields = ctx.unpackAll<Object?>(data);
 
       final [
         street as String,
@@ -192,14 +192,14 @@ extension AddressMessagePackGroup on MessagePackGroup {
 }
 
 extension ProductMessagePackGroup on MessagePackGroup {
-  void productCodec() => add(
+  void productCodec() => add<Product>(
     subId: 300,
     encoder: (product, ctx) {
       final fields = [product.description, product.price, product.title];
       return ctx.packAll(fields);
     },
     decoder: (data, ctx) {
-      final fields = ctx.unpackAll(data);
+      final fields = ctx.unpackAll<Object?>(data);
 
       final [
         description as String,

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:pro_mpack/pro_mpack.dart';
 import 'package:test/test.dart';
 
@@ -17,7 +19,7 @@ void main() {
           config.register<BigInt>(
             extId: 1,
             encoder: (val, ctx) => ctx.pack(val.toString()),
-            decoder: (data, ctx) => BigInt.parse(ctx.unpack<String>(data)!),
+            decoder: (data, ctx) => BigInt.parse(ctx.unpack<String>(data)),
           );
         },
       );
@@ -33,7 +35,7 @@ void main() {
         ..register(
           extId: 1,
           encoder: (val, ctx) => ctx.pack(val.toString()),
-          decoder: (data, ctx) => BigInt.parse(ctx.unpack<String>(data)!),
+          decoder: (data, ctx) => BigInt.parse(ctx.unpack<String>(data)),
         );
 
       final big = BigInt.parse('987654321');
@@ -44,14 +46,14 @@ void main() {
     test('groups (declarative)', () {
       final mpack = MessagePack(
         extensions: (config) {
-          config.registerGroup(
+          config.registerGroup<_MyDateTime>(
             extId: 10,
             builder: (group) {
-              group.add<DateTime>(
+              group.add<_MyDateTime>(
                 subId: 1,
-                encoder: (dt, ctx) => ctx.pack(dt.millisecondsSinceEpoch),
-                decoder: (data, ctx) => DateTime.fromMillisecondsSinceEpoch(
-                  ctx.unpack<int>(data)!,
+                encoder: (dt, ctx) => ctx.pack(dt.value.millisecondsSinceEpoch),
+                decoder: (data, ctx) => _MyDateTime(
+                  DateTime.fromMillisecondsSinceEpoch(ctx.unpack<int>(data)),
                 ),
               );
             },
@@ -59,10 +61,13 @@ void main() {
         },
       );
 
-      final now = DateTime.utc(2023);
+      final now = _MyDateTime(DateTime.utc(2023));
       final bytes = mpack.pack(now);
-      final decoded = mpack.unpack<DateTime>(bytes);
-      expect(decoded?.millisecondsSinceEpoch, now.millisecondsSinceEpoch);
+      final decoded = mpack.unpack<_MyDateTime>(bytes);
+      expect(
+        decoded.value.millisecondsSinceEpoch,
+        now.value.millisecondsSinceEpoch,
+      );
     });
 
     test('codec compatibility', () {
@@ -76,27 +81,263 @@ void main() {
       final mpack = MessagePack();
       final values = [1, 'two', 3.0];
       final bytes = mpack.packAll(values);
-      expect(mpack.unpackAll(bytes), values);
+      expect(mpack.unpackAll<Object?>(bytes), values);
     });
 
     test('subId >= 128 (varInt)', () {
       final mpack = MessagePack(
         extensions: (config) {
-          config.registerGroup(
+          config.registerGroup<_MyType>(
             extId: 5,
             builder: (group) {
-              group.add<int>(
+              group.add<_MyType>(
                 subId: 300,
-                encoder: (v, ctx) => ctx.pack(v),
-                decoder: (d, ctx) => ctx.unpack<int>(d)!,
+                encoder: (v, ctx) => ctx.pack(v.value),
+                decoder: (d, ctx) => _MyType(ctx.unpack<int>(d)),
               );
             },
           );
         },
       );
 
-      final bytes = mpack.pack(42);
-      expect(mpack.unpack<int>(bytes), 42);
+      final bytes = mpack.pack(const _MyType(42));
+      expect(mpack.unpack<_MyType>(bytes).value, 42);
+    });
+
+    group('register built-in type validation', () {
+      test('throws ArgumentError for int', () {
+        expect(
+          () => MessagePack(
+            extensions: (c) => c.register<int>(
+              extId: 1,
+              encoder: (v, ctx) => ctx.pack(v),
+              decoder: (d, ctx) => ctx.unpack<int>(d),
+            ),
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test('throws ArgumentError for String', () {
+        expect(
+          () => MessagePack(
+            extensions: (c) => c.register<String>(
+              extId: 1,
+              encoder: (v, ctx) => ctx.pack(v),
+              decoder: (d, ctx) => ctx.unpack<String>(d),
+            ),
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test('throws ArgumentError for bool', () {
+        expect(
+          () => MessagePack(
+            extensions: (c) => c.register<bool>(
+              extId: 1,
+              encoder: (v, ctx) => ctx.pack(v),
+              decoder: (d, ctx) => ctx.unpack<bool>(d),
+            ),
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test('throws ArgumentError for double', () {
+        expect(
+          () => MessagePack(
+            extensions: (c) => c.register<double>(
+              extId: 1,
+              encoder: (v, ctx) => ctx.pack(v),
+              decoder: (d, ctx) => ctx.unpack<double>(d),
+            ),
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test('throws ArgumentError for List', () {
+        expect(
+          () => MessagePack(
+            extensions: (c) => c.register<List<dynamic>>(
+              extId: 1,
+              encoder: (v, ctx) => ctx.pack(v),
+              decoder: (d, ctx) => ctx.unpack<List<dynamic>>(d),
+            ),
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test('throws ArgumentError for Map', () {
+        expect(
+          () => MessagePack(
+            extensions: (c) => c.register<Map<dynamic, dynamic>>(
+              extId: 1,
+              encoder: (v, ctx) => ctx.pack(v),
+              decoder: (d, ctx) => ctx.unpack<Map<dynamic, dynamic>>(d),
+            ),
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test('throws ArgumentError for Set', () {
+        expect(
+          () => MessagePack(
+            extensions: (c) => c.register<Set<dynamic>>(
+              extId: 1,
+              encoder: (v, ctx) => ctx.pack(v),
+              decoder: (d, ctx) => ctx.unpack<Set<dynamic>>(d),
+            ),
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test('throws ArgumentError for Uint8List', () {
+        expect(
+          () => MessagePack(
+            extensions: (c) => c.register<Uint8List>(
+              extId: 1,
+              encoder: (v, ctx) => ctx.pack(v),
+              decoder: (d, ctx) => ctx.unpack<Uint8List>(d),
+            ),
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test('throws ArgumentError for ByteData', () {
+        expect(
+          () => MessagePack(
+            extensions: (c) => c.register<ByteData>(
+              extId: 1,
+              encoder: (v, ctx) => ctx.pack(v),
+              decoder: (d, ctx) => ctx.unpack<ByteData>(d),
+            ),
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test('throws ArgumentError for DateTime', () {
+        expect(
+          () => MessagePack(
+            extensions: (c) => c.register<DateTime>(
+              extId: 1,
+              encoder: (v, ctx) => ctx.pack(v),
+              decoder: (d, ctx) => ctx.unpack<DateTime>(d),
+            ),
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test('throws ArgumentError for Float', () {
+        expect(
+          () => MessagePack(
+            extensions: (c) => c.register<Float>(
+              extId: 1,
+              encoder: (v, ctx) => ctx.pack(v.value),
+              decoder: (d, ctx) => Float(ctx.unpack<double>(d)),
+            ),
+          ),
+          throwsArgumentError,
+        );
+      });
+    });
+
+    group('registerGroup built-in type validation', () {
+      test('throws ArgumentError for DateTime', () {
+        expect(
+          () => MessagePack(
+            extensions: (c) => c.registerGroup<DateTime>(
+              extId: 1,
+              builder: (group) {
+                group.add<DateTime>(
+                  subId: 1,
+                  encoder: (v, ctx) => ctx.pack(v),
+                  decoder: (d, ctx) => ctx.unpack<DateTime>(d),
+                );
+              },
+            ),
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test('throws ArgumentError for int', () {
+        expect(
+          () => MessagePack(
+            extensions: (c) => c.registerGroup<int>(
+              extId: 1,
+              builder: (group) {
+                group.add<int>(
+                  subId: 1,
+                  encoder: (v, ctx) => ctx.pack(v),
+                  decoder: (d, ctx) => ctx.unpack<int>(d),
+                );
+              },
+            ),
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test('throws ArgumentError for String', () {
+        expect(
+          () => MessagePack(
+            extensions: (c) => c.registerGroup<String>(
+              extId: 1,
+              builder: (group) {
+                group.add<String>(
+                  subId: 1,
+                  encoder: (v, ctx) => ctx.pack(v),
+                  decoder: (d, ctx) => ctx.unpack<String>(d),
+                );
+              },
+            ),
+          ),
+          throwsArgumentError,
+        );
+      });
+
+      test('throws ArgumentError for List', () {
+        expect(
+          () => MessagePack(
+            extensions: (c) => c.registerGroup<List<dynamic>>(
+              extId: 1,
+              builder: (group) {
+                group.add<List<dynamic>>(
+                  subId: 1,
+                  encoder: (v, ctx) => ctx.pack(v),
+                  decoder: (d, ctx) => ctx.unpack<List<dynamic>>(d),
+                );
+              },
+            ),
+          ),
+          throwsArgumentError,
+        );
+      });
     });
   });
+}
+
+class _MyType {
+  const _MyType(this.value);
+  final int value;
+}
+
+class _MyDateTime {
+  const _MyDateTime(this.value);
+  final DateTime value;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || other is _MyDateTime && value == other.value;
+
+  @override
+  int get hashCode => value.hashCode;
 }

@@ -22,7 +22,9 @@ Uint8List serialize(
     initialBufferSize: initialBufferSize,
   )..encode(value);
 
-  return s.takeBytes();
+  final result = s.takeBytes();
+
+  return result;
 }
 
 /// Serializes multiple [values] consecutively.
@@ -40,7 +42,9 @@ Uint8List serializeAll(
     s.encode(value);
   }
 
-  return s.takeBytes();
+  final result = s.takeBytes();
+
+  return result;
 }
 
 /// Deserializes a single value from MessagePack [buffer].
@@ -55,7 +59,9 @@ Object? deserialize(
     preserveMapOrder: preserveMapOrder,
   );
 
-  return d.decode();
+  final result = d.decode();
+
+  return result;
 }
 
 /// Deserializes all values from MessagePack [buffer].
@@ -72,7 +78,8 @@ List<Object?> deserializeAll(
 
   final results = <Object?>[];
   while (d.hasBytesAvailable) {
-    results.add(d.decode());
+    final value = d.decode();
+    results.add(value);
   }
 
   return results;

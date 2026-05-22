@@ -67,7 +67,7 @@ final mpack = MessagePack(
     );
 
     // Register a group of related types (saves Extension IDs)
-    config.registerGroup<Object?>(
+    config.registerGroup<dynamic>(
       extId: 2,
       builder: (group) {
         group.add<Address>(
