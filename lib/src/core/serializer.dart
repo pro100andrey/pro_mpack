@@ -76,6 +76,8 @@ class Serializer {
     ExtEncoder? extEncoder,
     int initialBufferSize = 1024,
   }) : _extEncoder = extEncoder {
+    // Acquire a writer from the pool to minimize memory allocations and GC pressure.
+    // The pool allows reusing internal buffers across different serialization tasks.
     _writer = BinaryWriterPool.acquire(initialBufferSize);
   }
 
@@ -160,6 +162,9 @@ class Serializer {
 
   @pragma('vm:prefer-inline')
   void writeNegativeInt(int value) {
+    // Using switch with relational patterns is a modern Dart optimization.
+    // It compiles to an efficient branching tree that is generally faster
+    // than a series of if-else statements for range-based checks.
     switch (value) {
       case >= limitNegFixInt:
         _writer.writeInt8(value); // one-byte negative fixint: 111xxxxx
@@ -184,6 +189,7 @@ class Serializer {
 
   @pragma('vm:prefer-inline')
   void writePositiveInt(int value) {
+    // Range-based switch optimization (same as in writeNegativeInt).
     switch (value) {
       case <= limitInt8:
         _writer.writeUint8(value); // positive fixint
@@ -298,7 +304,10 @@ class Serializer {
         );
     }
 
-    // Optimize for List to avoid iterator overhead
+    // Optimize for List to avoid iterator overhead.
+    // Iterating over a List via index is significantly faster in Dart
+    // than using an Iterator (which `for-in` on a generic Iterable does),
+    // reducing object allocation and improving tight loop performance.
     if (iterable is List) {
       for (var i = 0; i < length; i++) {
         encode(iterable[i]);
@@ -424,9 +433,20 @@ class Serializer {
       // Timestamp 64
       // 1970 ... ~2514 with nanoseconds
       // Payload is 64-bit: [nano (30 bits)] [sec (34 bits)]
-      // To avoid bitwise issues > 32 bits on JS, split into two 32-bit writes
-      final high32 = (nano << 2) | (sec ~/ 0x100000000);
-      final low32 = sec & 0xFFFFFFFF;
+      //
+      // IMPORTANT (Cross-platform Compatibility):
+      // Dart's bitwise operators (<<, |) work on 64-bit integers on native
+      // platforms (VM), but Dart2JS compiles them to JavaScript bitwise
+      // operators which are restricted to 32 bits.
+      //
+      // An expression like `(nano << 34) | sec` would be corrupted on Web.
+      // To ensure correctness across all platforms, we manually split the
+      // 64-bit payload into two safe 32-bit writes.
+      //
+      // See: https://dart.dev/guides/language/numbers#bitwise-operations
+      // See: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Bitwise_operators
+      final high32 = (nano << 2) | (sec ~/ 0x100000000); // top 32 bits
+      final low32 = sec & 0xFFFFFFFF; // bottom 32 bits
 
       _writer
         ..writeUint8(fFixExt8)
@@ -467,6 +487,7 @@ class Serializer {
     try {
       return _writer.takeBytes();
     } finally {
+      // Always release the writer back to the pool to allow buffer reuse.
       BinaryWriterPool.release(_writer);
     }
   }
@@ -477,6 +498,7 @@ class Serializer {
   /// ensure that any resources (such as buffers) are properly released. After
   ///  calling this method, the serializer should not be used again.
   void dispose() {
+    // Release the writer if it hasn't been released by takeBytes yet.
     BinaryWriterPool.release(_writer);
   }
 }
