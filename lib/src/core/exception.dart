@@ -32,7 +32,7 @@ sealed class MessagePackException implements Exception {
   final String? suggestion;
 
   /// The name of the exception, used in [toString].
-  String get name => 'MessagePackException';
+  String get name;
 
   @override
   String toString() {

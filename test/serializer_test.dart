@@ -852,4 +852,71 @@ void main() {
       expect(deserializer.decode(), 'end');
     });
   });
+
+  test('Float toString', () {
+    expect(Float(1.2).toString(), 'Float(1.2)');
+  });
+
+  test('serializes ByteData correctly', () {
+    final bd = ByteData(2)..setUint16(0, 0x1234);
+    final result = serialize(bd);
+    expect(result, Uint8List.fromList([0xc4, 0x02, 0x12, 0x34]));
+  });
+
+  group('Serializer Edge Cases', () {
+    test('Iterable is not List', () {
+      final s = Serializer()..encode({1, 2, 3}); // Set is Iterable but not List
+      final bytes = s.takeBytes();
+      final d = Deserializer(bytes);
+      expect(d.decode(), [1, 2, 3]);
+    });
+
+    test('writeExt with resolvedType but no extEncoder', () {
+      final s = Serializer(); // No extEncoder
+      expect(
+        () => s.writeExt(Object(), 10),
+        throwsA(
+          isA<MessagePackConfigurationException>().having(
+            (e) => e.message,
+            'message',
+            contains('Unable to encode object'),
+          ),
+        ),
+      );
+    });
+
+    test('writeExt invalid type range', () {
+      final s = Serializer(extEncoder: _MockInvalidTypeEncoder());
+      expect(
+        () => s.encode(Object()),
+        throwsA(
+          isA<MessagePackConfigurationException>().having(
+            (e) => e.message,
+            'message',
+            contains('Type must be in the range'),
+          ),
+        ),
+      );
+    });
+
+    test('writeExt success path in encode', () {
+      final s = Serializer(extEncoder: _MockSuccessEncoder())..encode(Object());
+      final bytes = s.takeBytes();
+      expect(bytes, [0xd4, 0x0a, 0x00]);
+    });
+  });
+}
+
+class _MockInvalidTypeEncoder implements ExtEncoder {
+  @override
+  int? extTypeForObject(Object? object) => 200;
+  @override
+  Uint8List encodeObject(Object? object) => Uint8List(0);
+}
+
+class _MockSuccessEncoder implements ExtEncoder {
+  @override
+  int? extTypeForObject(Object? object) => 10;
+  @override
+  Uint8List encodeObject(Object? object) => Uint8List.fromList([0]);
 }

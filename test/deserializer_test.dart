@@ -419,6 +419,20 @@ void main() {
     final result = deserialize(buffer);
     expect(result, DateTime.utc(1970, 1, 1, 0, 0, 1, 0, 2));
   });
+
+  test('throws MessagePackFormatException on invalid timestamp length', () {
+    final buffer = Uint8List.fromList([0xc7, 0x05, 0xff, 0, 0, 0, 0, 0]);
+    expect(
+      () => deserialize(buffer),
+      throwsA(
+        isA<MessagePackFormatException>().having(
+          (e) => e.message,
+          'message',
+          contains('Invalid timestamp length'),
+        ),
+      ),
+    );
+  });
   // Extension format tests (ext 8, ext 16, ext 32)
   test('deserializes ext 8 format correctly', () {
     final buffer = Uint8List.fromList(
