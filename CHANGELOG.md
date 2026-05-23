@@ -1,5 +1,7 @@
 ## 2.1.0
 
+- **Feat**: Introduced a high-level `MessagePack` API (`lib/src/message_pack.dart`) offering a builder-style interface. This includes support for declarative and imperative custom extensions, polymorphic group registration (`registerGroup`), and seamless integration with the Dart `Codec` interface.
+- **Feat**: Added a new robust and exhaustive `MessagePackException` hierarchy (`lib/src/core/exception.dart`) for granular error handling.
 - Update dependencies to the latest versions
 
 ## 2.0.2
