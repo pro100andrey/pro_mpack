@@ -76,8 +76,9 @@ class Serializer {
     ExtEncoder? extEncoder,
     int initialBufferSize = 1024,
   }) : _extEncoder = extEncoder {
-    // Acquire a writer from the pool to minimize memory allocations and GC pressure.
-    // The pool allows reusing internal buffers across different serialization tasks.
+    // Acquire a writer from the pool to minimize memory allocations and GC
+    // pressure. The pool allows reusing internal buffers across different
+    // serialization tasks.
     _writer = BinaryWriterPool.acquire(initialBufferSize);
   }
 
