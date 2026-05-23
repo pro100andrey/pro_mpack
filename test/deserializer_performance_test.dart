@@ -5,12 +5,12 @@ import 'package:pro_mpack/pro_mpack.dart';
 
 import 'utils/custom.dart';
 import 'utils/data.dart';
-import 'utils/models.dart';
 
 class DeserializerBenchmark extends BenchmarkBase {
   DeserializerBenchmark() : super('mpack - deserialize');
 
   late final Uint8List bytes;
+
   @override
   void setup() {
     bytes = serialize(object);
@@ -30,20 +30,18 @@ class DeserializerBenchmark extends BenchmarkBase {
 class DeserializerModelsBenchmark extends BenchmarkBase {
   DeserializerModelsBenchmark() : super('mpack - deserialize models');
 
-  late final Uint8List userBytes;
-  late final Uint8List circleBytes;
+  late final Uint8List bytes;
 
   @override
   void setup() {
-    userBytes = mpack.encode(user);
-    circleBytes = mpack.encode(circle);
+    bytes = mpack.encode([user, circle]);
   }
 
   @override
   void run() {
     for (var i = 0; i < 1000; i++) {
-      final _ = mpack.decode(userBytes) as User;
-      final _ = mpack.decode(circleBytes) as Circle;
+      final res = mpack.decode(bytes);
+      assert(res is List, '');
     }
   }
 

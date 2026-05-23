@@ -1,25 +1,25 @@
 import 'dart:typed_data';
 
-import 'package:pro_mpack/pro_mpack.dart';
+import 'package:pro_mpack/src/message_pack_new.dart';
 
 import 'models.dart';
 
 final mpack = MessagePack(
-  extensions: (config) {
-    config
-      ..register<BigInt>(
+  extensions: (mp) {
+    mp
+      ..register(
         extId: 1,
         encoder: (value, ctx) => ctx.pack(value.toString()),
         decoder: (data, ctx) => BigInt.parse(ctx.unpack<String>(data)),
       )
-      ..registerGroup<dynamic>(
+      ..registerGroup(
         extId: 2,
         builder: (group) => group
           ..addressCodec()
           ..userCodec()
           ..productCodec(),
       )
-      ..registerGroup<Shape>(
+      ..registerGroup(
         extId: 3,
         builder: (group) => group..circleCodec(),
       );
@@ -27,7 +27,7 @@ final mpack = MessagePack(
 );
 
 extension ShapeMessagePackGroup on MessagePackGroup {
-  void circleCodec() => add<Circle>(
+  void circleCodec() => add(
     subId: 1,
     encoder: (value, ctx) => ctx.pack(value.radius),
     decoder: (data, ctx) {
@@ -36,8 +36,9 @@ extension ShapeMessagePackGroup on MessagePackGroup {
     },
   );
 
-  void rectangleCodec() => add<Rectangle>(
+  void rectangleCodec() => add(
     subId: 1,
+
     encoder: (value, ctx) => ctx.packAll([value.width, value.height]),
     decoder: (data, ctx) {
       final values = ctx.unpackAll<dynamic>(data);
@@ -49,7 +50,7 @@ extension ShapeMessagePackGroup on MessagePackGroup {
 }
 
 extension AddressMessagePackGroup on MessagePackGroup {
-  void addressCodec() => add<Address>(
+  void addressCodec() => add(
     subId: 1,
     encoder: (address, ctx) {
       final fields = [
