@@ -37,8 +37,6 @@ class DeserializerModelsBenchmark extends BenchmarkBase {
   void setup() {
     userBytes = mpack.encode(user);
     circleBytes = mpack.encode(circle);
-
-
   }
 
   @override
