@@ -1,7 +1,7 @@
 // Disable warnings for print statements in this example
 // ignore_for_file: avoid_print
 
-import 'package:pro_mpack/message_pack.dart';
+import 'package:pro_mpack/pro_mpack.dart';
 
 void main() {
   final mp = MessagePack(
