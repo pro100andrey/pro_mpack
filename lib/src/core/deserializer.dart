@@ -210,16 +210,17 @@ class Deserializer {
       case fMap32:
         return _decodeMap(_reader.readUint32());
 
-      // Never used (0xc1): reserved by MessagePack specification
-      case fNeverUsed:
-        throw const MessagePackFormatException(
-          'Invalid format byte 0xc1: this value is reserved and never used '
-              'in MessagePack specification',
-          'Ensure the data source is valid MessagePack and the stream '
-              'is not corrupted.',
-        );
-      // Default case: invalid MessagePack format
+      // Default case (0xc1 or other invalid): reserved by MessagePack
+      // specification or invalid byte.
       default:
+        if (u == fNeverUsed) {
+          throw const MessagePackFormatException(
+            'Invalid format byte 0xc1: this value is reserved and never used '
+                'in MessagePack specification',
+            'Ensure the data source is valid MessagePack and the stream '
+                'is not corrupted.',
+          );
+        }
         throw MessagePackFormatException(
           'Invalid MessagePack format byte: '
               '0x${u.toRadixString(16).padLeft(2, "0")}',
