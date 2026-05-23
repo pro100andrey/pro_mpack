@@ -118,18 +118,21 @@ void main() {
         );
       });
 
-      test('throws MessagePackConfigurationException for Object? (base type)', () {
-        expect(
-          () => MessagePack(
-            extensions: (c) => c.register<Object?>(
-              extId: 1,
-              encoder: (v, ctx) => ctx.pack(v),
-              decoder: (d, ctx) => ctx.unpack<String>(d),
+      test(
+        'throws MessagePackConfigurationException for Object? (base type)',
+        () {
+          expect(
+            () => MessagePack(
+              extensions: (c) => c.register<Object?>(
+                extId: 1,
+                encoder: (v, ctx) => ctx.pack(v),
+                decoder: (d, ctx) => ctx.unpack<String>(d),
+              ),
             ),
-          ),
-          throwsA(isA<MessagePackConfigurationException>()),
-        );
-      });
+            throwsA(isA<MessagePackConfigurationException>()),
+          );
+        },
+      );
 
       test('throws MessagePackConfigurationException for String', () {
         expect(
