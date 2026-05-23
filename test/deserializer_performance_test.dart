@@ -30,16 +30,22 @@ class DeserializerBenchmark extends BenchmarkBase {
 class DeserializerModelsBenchmark extends BenchmarkBase {
   DeserializerModelsBenchmark() : super('mpack - deserialize models');
 
-  late final Uint8List bytes;
+  late final Uint8List userBytes;
+  late final Uint8List circleBytes;
+
   @override
   void setup() {
-    bytes = codec.encode(user);
+    userBytes = mpack.encode(user);
+    circleBytes = mpack.encode(circle);
+
+
   }
 
   @override
   void run() {
     for (var i = 0; i < 1000; i++) {
-      final _ = codec.decode<User>(bytes);
+      final _ = mpack.decode(userBytes) as User;
+      final _ = mpack.decode(circleBytes) as Circle;
     }
   }
 

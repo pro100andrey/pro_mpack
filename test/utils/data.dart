@@ -69,3 +69,7 @@ final user = User(
   ],
   numbers: [1, 2, 3, 4, 5, 6, 7, 8, 8, 10],
 );
+
+const rectangle = Rectangle(10, 20);
+
+const circle = Circle(100);

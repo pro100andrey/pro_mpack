@@ -7,35 +7,44 @@ import 'models.dart';
 final mpack = MessagePack(
   extensions: (config) {
     config
-      ..registerBigInt()
+      ..register<BigInt>(
+        extId: 1,
+        encoder: (value, ctx) => ctx.pack(value.toString()),
+        decoder: (data, ctx) => BigInt.parse(ctx.unpack<String>(data)),
+      )
       ..registerGroup<dynamic>(
         extId: 2,
         builder: (group) => group
           ..addressCodec()
           ..userCodec()
           ..productCodec(),
+      )
+      ..registerGroup<Shape>(
+        extId: 3,
+        builder: (group) => group..circleCodec(),
       );
   },
 );
 
-// For compatibility with performance tests
-class _CodecMock {
-  _CodecMock(this.mpack);
+extension ShapeMessagePackGroup on MessagePackGroup {
+  void circleCodec() => add<Circle>(
+    subId: 1,
+    encoder: (value, ctx) => ctx.pack(value.radius),
+    decoder: (data, ctx) {
+      final radius = ctx.unpack<double>(data);
+      return Circle(radius);
+    },
+  );
 
-  final MessagePack mpack;
+  void rectangleCodec() => add<Rectangle>(
+    subId: 1,
+    encoder: (value, ctx) => ctx.packAll([value.width, value.height]),
+    decoder: (data, ctx) {
+      final values = ctx.unpackAll<dynamic>(data);
+      final [width as double, height as double] = values;
 
-  Uint8List encode(Object? value) => mpack.pack(value);
-
-  T decode<T>(Uint8List data) => mpack.unpack<T>(data);
-}
-
-final codec = _CodecMock(mpack);
-
-extension BigIntMessagePack on MessagePack {
-  void registerBigInt() => register<BigInt>(
-    extId: 1,
-    encoder: (value, ctx) => ctx.pack(value.toString()),
-    decoder: (data, ctx) => BigInt.parse(ctx.unpack<String>(data)),
+      return Rectangle(width, height);
+    },
   );
 }
 

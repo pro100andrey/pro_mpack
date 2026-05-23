@@ -60,3 +60,26 @@ class Product {
   String toString() =>
       'Product(title: $title, description: $description, price: $price)';
 }
+
+abstract class Shape {
+  const Shape();
+}
+
+class Circle extends Shape {
+  const Circle(this.radius);
+
+  final double radius;
+
+  @override
+  String toString() => 'Circle(radius: $radius)';
+}
+
+class Rectangle extends Shape {
+  const Rectangle(this.width, this.height);
+
+  final double width;
+  final double height;
+
+  @override
+  String toString() => 'Rectangle(width: $width, height: $height)';
+}
