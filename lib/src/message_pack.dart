@@ -65,7 +65,7 @@ class MessagePack extends Codec<dynamic, Uint8List>
     this.defaultBufferSize = 1024,
   }) : _extensions = [],
        _decoderMap = HashMap(),
-       _extensionsCache = HashMap() {
+       _typeMap = HashMap() {
     extensions?.call(this);
   }
 
@@ -74,7 +74,7 @@ class MessagePack extends Codec<dynamic, Uint8List>
 
   final List<_Extension> _extensions;
   final Map<int, _Extension> _decoderMap;
-  final Map<Type, _Extension?> _extensionsCache;
+  final Map<Type, _Extension?> _typeMap;
 
   /// Registers a custom extension for type [T].
   ///
@@ -103,6 +103,7 @@ class MessagePack extends Codec<dynamic, Uint8List>
     required Encoder<T> encoder,
     required Decoder<T> decoder,
     required bool isGroup,
+    bool Function(Object?)? customCanHandle,
   }) {
     assert(() {
       const builtinTypes = {
@@ -152,14 +153,14 @@ class MessagePack extends Codec<dynamic, Uint8List>
 
     final ext = _Extension(
       id: extId,
-      canHandle: (v) => v is T,
+      canHandle: customCanHandle ?? (v) => v is T,
       encode: (v, ctx) => encoder(v as T, ctx),
       decode: (d, ctx) => decoder(d, ctx),
     );
 
     _extensions.add(ext);
     _decoderMap[extId] = ext;
-    _extensionsCache.clear();
+    _typeMap[T] = ext;
   }
 
   /// Registers a group of related types under a single [extId].
@@ -198,6 +199,7 @@ class MessagePack extends Codec<dynamic, Uint8List>
       encoder: (value, context) => _enc(value, context, group),
       decoder: (data, context) => _dec(data, context, group) as Base,
       isGroup: true,
+      customCanHandle: (v) => v is Base && group.canHandle(v),
     );
   }
 
@@ -313,14 +315,14 @@ class MessagePack extends Codec<dynamic, Uint8List>
     }
 
     final type = object.runtimeType;
-    final cached = _extensionsCache[type];
+    final cached = _typeMap[type];
     if (cached != null) {
       return cached.id;
     }
 
     for (final ext in _extensions) {
       if (ext.canHandle(object)) {
-        _extensionsCache[type] = ext;
+        _typeMap[type] = ext;
         return ext.id;
       }
     }
@@ -330,17 +332,35 @@ class MessagePack extends Codec<dynamic, Uint8List>
 
   @override
   Uint8List encodeObject(Object? object) {
-    final typeId = extTypeForObject(object);
-    if (typeId == null) {
+    if (object == null) {
+      throw const MessagePackConfigurationException(
+        'Cannot encode null value as extension.',
+        'Use writeNull() for null values.',
+      );
+    }
+
+    final type = object.runtimeType;
+    var ext = _typeMap[type];
+
+    if (ext == null) {
+      for (final e in _extensions) {
+        if (e.canHandle(object)) {
+          ext = e;
+          _typeMap[type] = e;
+          break;
+        }
+      }
+    }
+
+    if (ext == null) {
       throw MessagePackUnsupportedTypeException(
-        object.runtimeType,
-        "No encoder for type '${object.runtimeType}'.",
+        type,
+        "No encoder for type '$type'.",
         'Register an extension for this type before serializing.',
       );
     }
 
-    final ext = _extensionsCache[object.runtimeType];
-    return ext!.encode(object, this);
+    return ext.encode(object, this);
   }
 
   // ExtDecoder implementation
@@ -381,8 +401,8 @@ class _MessagePackDecoder extends Converter<Uint8List, Object?> {
 /// different subtypes are encoded and decoded using sub-IDs.
 class MessagePackGroup {
   final List<_Extension> _extensions = [];
-  final Map<Type, _Extension> _extensionsCache = {};
-  final Map<int, _Extension> _decoders = {};
+  final Map<Type, _Extension> _typeMap = HashMap();
+  final Map<int, _Extension> _decoders = HashMap();
 
   /// Adds a subtype to the group.
   ///
@@ -402,19 +422,46 @@ class MessagePackGroup {
 
     _extensions.add(ext);
     _decoders[subId] = ext;
-    _extensionsCache.clear();
+    _typeMap[T] = ext;
+  }
+
+  /// Returns true if the group can encode the given [value].
+  bool canHandle(Object? value) {
+    if (value == null) {
+      return false;
+    }
+
+    final type = value.runtimeType;
+    if (_typeMap.containsKey(type)) {
+      return true;
+    }
+
+    for (final ext in _extensions) {
+      if (ext.canHandle(value)) {
+        _typeMap[type] = ext;
+        return true;
+      }
+    }
+
+    return false;
   }
 
   (int, Uint8List) _encode(Object? value, MessagePackContext context) {
-    final type = value.runtimeType;
+    if (value == null) {
+      throw const MessagePackConfigurationException(
+        'Cannot encode null value in group.',
+        'Groups only support non-null custom types.',
+      );
+    }
 
-    var ext = _extensionsCache[type];
+    final type = value.runtimeType;
+    var ext = _typeMap[type];
 
     if (ext == null) {
       for (final e in _extensions) {
         if (e.canHandle(value)) {
           ext = e;
-          _extensionsCache[type] = e;
+          _typeMap[type] = e;
           break;
         }
       }

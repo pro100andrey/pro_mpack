@@ -390,7 +390,7 @@ void main() {
         );
       expect(
         () => mpack.pack(const _MyType(1)),
-        throwsA(isA<MessagePackConfigurationException>()),
+        throwsA(isA<MessagePackUnsupportedTypeException>()),
       );
     });
 
