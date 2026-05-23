@@ -1,6 +1,7 @@
 /// High-level MessagePack API with a builder-style interface for extensions.
 library;
 
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -21,9 +22,6 @@ typedef Decoder<T> = T Function(Uint8List data, MessagePackContext context);
 /// This interface is passed to custom encoders and decoders, allowing them
 /// to recursively pack and unpack nested objects using the same configuration.
 abstract interface class MessagePackContext {
-  /// The default constructor for [MessagePackContext].
-  const MessagePackContext();
-
   /// Packs [value] into a MessagePack-encoded [Uint8List].
   Uint8List pack<T>(T value);
 
@@ -66,8 +64,8 @@ class MessagePack extends Codec<dynamic, Uint8List>
     void Function(MessagePack)? extensions,
     this.defaultBufferSize = 1024,
   }) : _extensions = [],
-       _decoderMap = {},
-       _extensionsCache = {} {
+       _decoderMap = HashMap(),
+       _extensionsCache = HashMap() {
     extensions?.call(this);
   }
 
