@@ -230,16 +230,13 @@ class MessagePack extends Codec<dynamic, Uint8List>
   ) {
     final (subId, payload) = group._encode(value, context);
 
-    final writer = BinaryWriterPool.acquire(payload.length + 5);
-
-    try {
-      writer
+    return BinaryWriterPool.withWriter((w) {
+      w
         ..writeVarUint(subId)
         ..writeBytes(payload);
-      return writer.takeBytes();
-    } finally {
-      BinaryWriterPool.release(writer);
-    }
+
+      return w.takeBytes();
+    }, payload.length + 5);
   }
 
   @override
