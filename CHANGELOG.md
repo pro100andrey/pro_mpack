@@ -1,3 +1,9 @@
+## 2.2.0
+
+- **Fix**: Added explicit `sec >= 0` check in timestamp serializer (`writeTimestamp`) to ensure MessagePack spec compliance for 64-bit timestamp format (unsigned 34-bit seconds field). Negative seconds (pre-1970 dates) now correctly route to 96-bit timestamp format.
+- **Test**: Added comprehensive timestamp serialization tests covering TS96 (pre-1970 dates, byte-order verification) and TS64 (post-1970 with nanoseconds, data64 layout validation).
+
+
 ## 2.1.0
 
 - **Feat**: Introduced a high-level `MessagePack` API (`lib/src/message_pack.dart`) offering a builder-style interface. This includes support for declarative and imperative custom extensions, polymorphic group registration (`registerGroup`), and seamless integration with the Dart `Codec` interface.

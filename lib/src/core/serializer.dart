@@ -409,24 +409,30 @@ class Serializer {
     final sec = (micro / million).floor();
     final nano = ((micro % million + million) % million) * 1_000;
 
-    if ((sec >> 34) == 0) {
-      // 32-bit (secs) or 64-bit (30-bit nsec | 34-bit secs)
-      final data64 = (nano << 34) | sec;
+    // 0x3FFFFFFFF is max 34-bit unsigned integer
+    if (sec >= 0 && sec <= 0x3FFFFFFFF) {
       // Timestamp 32
       // 1970 ... 2106 and no nanoseconds
-      if (nano == 0 && sec >= 0 && sec <= limitUint32) {
+      if (nano == 0 && sec <= limitUint32) {
         _writer
           ..writeUint8(fFixExt4)
           ..writeInt8(extTypeTimestamp)
           ..writeUint32(sec);
         return;
       }
+
       // Timestamp 64
       // 1970 ... ~2514 with nanoseconds
+      // Payload is 64-bit: [nano (30 bits)] [sec (34 bits)]
+      // To avoid bitwise issues > 32 bits on JS, split into two 32-bit writes
+      final high32 = (nano << 2) | (sec ~/ 0x100000000);
+      final low32 = sec & 0xFFFFFFFF;
+
       _writer
         ..writeUint8(fFixExt8)
         ..writeInt8(extTypeTimestamp)
-        ..writeInt64(data64);
+        ..writeUint32(high32)
+        ..writeUint32(low32);
     } else {
       // Timestamp 96
       // Before 1970 or after ~2514

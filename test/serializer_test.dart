@@ -630,6 +630,59 @@ void main() {
   });
 
   group('Spec Compliance - Timestamp', () {
+    test('TS32: 1970-01-01 00:00:01 (sec=1, nano=0)', () {
+      final date = DateTime.utc(1970, 1, 1, 0, 0, 1);
+      final encoded = serialize(date);
+      // expect fixext 4, type -1, 4 bytes of seconds
+      expect(encoded, Uint8List.fromList([0xd6, 0xff, 0x00, 0x00, 0x00, 0x01]));
+      expect(deserialize(encoded), date);
+    });
+
+    test('TS64: 1970-01-01 00:00:01 with 1 microsecond (sec=1, nano=1000)', () {
+      final date = DateTime.utc(1970, 1, 1, 0, 0, 1, 0, 1);
+      final encoded = serialize(date);
+      // expect fixext 8, type -1, 8 bytes: [nano 30b][sec 34b]
+      // nano = 1000 (0x3E8)
+      // sec = 1
+      // high32 = (1000 << 2) | (1 ~/ 2^32) = 4000 (0xFA0) | 0 = 0xFA0
+      // low32 = 1 & 0xFFFFFFFF = 1
+      // Payload: 00 00 0F A0 00 00 00 01
+      expect(
+        encoded,
+        Uint8List.fromList([
+          0xd7,
+          0xff,
+          0x00,
+          0x00,
+          0x0f,
+          0xa0,
+          0x00,
+          0x00,
+          0x00,
+          0x01,
+        ]),
+      );
+      expect(deserialize(encoded), date);
+    });
+
+    test('TS64: Current date (approx 2024)', () {
+      final date = DateTime.utc(2024, 1, 1, 12, 34, 56, 789, 123);
+      final encoded = serialize(date);
+      expect(deserialize(encoded), date);
+    });
+
+    test('TS64: Max 64-bit TS (year 2514)', () {
+      // 2^34 - 1 seconds from 1970 is 17179869183
+      const maxSecs = 17179869183;
+      final date = DateTime.fromMicrosecondsSinceEpoch(
+        maxSecs * 1000000 + 999000, // 999ms
+        isUtc: true,
+      );
+      final encoded = serialize(date);
+      expect(encoded[0], 0xd7); // Must be fixext 8
+      expect(deserialize(encoded), date);
+    });
+
     test('TS96: Negative timestamp (pre-1970)', () {
       final date = DateTime.utc(1960);
       final encoded = serialize(date);
@@ -648,6 +701,13 @@ void main() {
       final encoded = serialize(date);
       final decoded = deserialize(encoded);
       expect(decoded, date);
+    });
+
+    test('TS96: Far future (year 3000)', () {
+      final date = DateTime.utc(3000);
+      final encoded = serialize(date);
+      expect(encoded[0], 0xc7); // ext 8
+      expect(deserialize(encoded), date);
     });
   });
 
