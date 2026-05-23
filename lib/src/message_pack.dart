@@ -269,10 +269,9 @@ class MessagePack extends Codec<dynamic, Uint8List>
     }
 
     final type = object.runtimeType;
-    final cached = _typeMap[type];
 
-    if (cached != null) {
-      return cached.id;
+    if (_typeMap.containsKey(type)) {
+      return _typeMap[type]?.id;
     }
 
     for (final ext in _polymorphic) {
@@ -281,6 +280,8 @@ class MessagePack extends Codec<dynamic, Uint8List>
         return ext.id;
       }
     }
+
+    _typeMap[type] = null;
     return null;
   }
 
@@ -291,21 +292,23 @@ class MessagePack extends Codec<dynamic, Uint8List>
     }
 
     final type = object.runtimeType;
-    var ext = _typeMap[type];
-    if (ext == null) {
+
+    if (_typeMap.containsKey(type)) {
+      final ext = _typeMap[type];
+      if (ext != null) {
+        return ext.encode(object, this);
+      }
+    } else {
       for (final e in _polymorphic) {
         if (e.canHandle(object)) {
-          ext = e;
           _typeMap[type] = e;
-          break;
+          return e.encode(object, this);
         }
       }
-    }
-    if (ext == null) {
-      throw MessagePackUnsupportedTypeException(type, 'No encoder.', '');
+      _typeMap[type] = null;
     }
 
-    return ext.encode(object, this);
+    throw MessagePackUnsupportedTypeException(type, 'No encoder.', '');
   }
 
   @override
@@ -339,7 +342,7 @@ class MessagePackGroup {
   _Extension? _groupExtension;
 
   final List<_Extension> _polymorphic = [];
-  final Map<Type, _Extension> _typeMap = HashMap();
+  final Map<Type, _Extension?> _typeMap = HashMap();
   final Map<int, _Extension> _decoders = HashMap();
 
   void add<T>({
@@ -391,25 +394,27 @@ class MessagePackGroup {
     }
 
     final type = value.runtimeType;
-    var ext = _typeMap[type];
-    if (ext == null) {
+
+    if (_typeMap.containsKey(type)) {
+      final ext = _typeMap[type];
+      if (ext != null) {
+        return (ext.id, ext.encode(value, context));
+      }
+    } else {
       for (final e in _polymorphic) {
         if (e.canHandle(value)) {
-          ext = e;
           _typeMap[type] = e;
-          break;
+          return (e.id, e.encode(value, context));
         }
       }
+      _typeMap[type] = null;
     }
-    
-    if (ext == null) {
-      throw MessagePackUnsupportedTypeException(
-        type,
-        'Subtype $type not registered.',
-        '',
-      );
-    }
-    return (ext.id, ext.encode(value, context));
+
+    throw MessagePackUnsupportedTypeException(
+      type,
+      'Subtype $type not registered.',
+      '',
+    );
   }
 
   Object? _decode(int id, Uint8List data, MessagePackContext context) {
