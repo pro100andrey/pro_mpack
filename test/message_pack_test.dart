@@ -371,7 +371,7 @@ void main() {
       final data = Uint8List.fromList([0xc7, 0x00, 0x0a]);
       expect(
         () => mpack.unpack<dynamic>(data),
-        throwsA(isA<MessagePackConfigurationException>()),
+        throwsA(isA<MessagePackFormatException>()),
       );
     });
 

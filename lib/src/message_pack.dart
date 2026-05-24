@@ -205,7 +205,10 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
       encode: (_, _) => throw StateError('Group encode: use concrete type.'),
       decode: (data, ctx) {
         if (data.isEmpty) {
-          throw const MessagePackConfigurationException('Empty data.', '');
+          throw const MessagePackFormatException(
+            'Empty group payload.',
+            'A group extension payload must contain at least a subId.',
+          );
         }
         // subId is encoded as a standard MessagePack integer.
         final unpacker = Unpacker(buffer: data);
