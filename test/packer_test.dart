@@ -395,7 +395,7 @@ void main() {
       ]),
     );
   });
-  // Тесты для timestamp
+  // Timestamp tests
   test('serializes timestamp 32 format correctly', () {
     final timestamp = DateTime.utc(1970, 1, 1, 0, 0, 1);
     final result = serialize(timestamp);
@@ -963,6 +963,13 @@ void main() {
       final s = Packer(encodeExt: _MockSuccessEncoder().call)..pack(Object());
       final bytes = s.takeBytes();
       expect(bytes, [0xd4, 0x0a, 0x00]);
+    });
+
+    test('explicit dispose can be called without error', () {
+      Packer()
+        ..pack(42)
+        ..dispose();
+      // Test passes if no exception is thrown
     });
   });
 }

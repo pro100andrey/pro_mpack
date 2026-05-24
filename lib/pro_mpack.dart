@@ -20,7 +20,8 @@ import 'src/core/unpacker.dart';
 export 'src/core/exception.dart';
 export 'src/core/packer.dart' show EncodeExt, ExtEncoded, Float, Packer;
 export 'src/core/unpacker.dart' show DecodeExt, Unpacker;
-export 'src/message_pack.dart' show MessagePack, MessagePackCtx, MessagePackGroup;
+export 'src/message_pack.dart'
+    show MessagePack, MessagePackCtx, MessagePackGroup;
 
 /// Serializes [value] into the MessagePack binary format.
 ///

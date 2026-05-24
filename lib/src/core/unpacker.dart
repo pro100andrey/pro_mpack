@@ -8,8 +8,10 @@ import 'dart:typed_data';
 
 import 'package:pro_binary/pro_binary.dart';
 
+import '../../pro_mpack.dart' show Packer;
 import 'constants.dart';
 import 'exception.dart';
+import 'packer.dart' show Packer;
 
 /// Called by the [Unpacker] when it encounters a MessagePack ext type.
 ///
@@ -31,10 +33,10 @@ extension type Unpacker._(_Internal _i) {
     DecodeExt? decodeExt,
     bool preserveMapOrder = false,
   }) : _i = (
-          reader: BinaryReader(buffer),
-          decodeExt: decodeExt,
-          preserveMapOrder: preserveMapOrder,
-        );
+         reader: BinaryReader(buffer),
+         decodeExt: decodeExt,
+         preserveMapOrder: preserveMapOrder,
+       );
 
   BinaryReader get _rd => _i.reader;
   DecodeExt? get _ext => _i.decodeExt;
@@ -118,43 +120,43 @@ extension type Unpacker._(_Internal _i) {
       fExt32 => _unpackExtension(header),
 
       fNeverUsed => throw const MessagePackFormatException(
-          'Invalid format byte 0xc1 (never used)',
-        ),
+        'Invalid format byte 0xc1 (never used)',
+      ),
 
       _ => throw MessagePackFormatException(
-          'Unknown format byte: 0x${header.toRadixString(16).padLeft(2, '0')}',
-        ),
+        'Unknown format byte: 0x${header.toRadixString(16).padLeft(2, '0')}',
+      ),
     };
   }
 
   @pragma('vm:prefer-inline')
   int _unpackInt(int header) => switch (header) {
-        <= limitInt8 => header,
-        >= fNegFixIntPrefix => header - 256,
-        fUint8 => _rd.readUint8(),
-        fUint16 => _rd.readUint16(),
-        fUint32 => _rd.readUint32(),
-        fUint64 => _rd.readUint64(),
-        fInt8 => _rd.readInt8(),
-        fInt16 => _rd.readInt16(),
-        fInt32 => _rd.readInt32(),
-        fInt64 => _rd.readInt64(),
-        _ => _throwExpected('integer', header),
-      };
+    <= limitInt8 => header,
+    >= fNegFixIntPrefix => header - 256,
+    fUint8 => _rd.readUint8(),
+    fUint16 => _rd.readUint16(),
+    fUint32 => _rd.readUint32(),
+    fUint64 => _rd.readUint64(),
+    fInt8 => _rd.readInt8(),
+    fInt16 => _rd.readInt16(),
+    fInt32 => _rd.readInt32(),
+    fInt64 => _rd.readInt64(),
+    _ => _throwExpected('integer', header),
+  };
 
   @pragma('vm:prefer-inline')
   double _unpackDouble(int header) => switch (header) {
-        fFloat32 => _rd.readFloat32(),
-        fFloat64 => _rd.readFloat64(),
-        _ => _throwExpected('float/double', header),
-      };
+    fFloat32 => _rd.readFloat32(),
+    fFloat64 => _rd.readFloat64(),
+    _ => _throwExpected('float/double', header),
+  };
 
   @pragma('vm:prefer-inline')
   bool _unpackBool(int header) => switch (header) {
-        fTrue => true,
-        fFalse => false,
-        _ => _throwExpected('bool', header),
-      };
+    fTrue => true,
+    fFalse => false,
+    _ => _throwExpected('bool', header),
+  };
 
   @pragma('vm:prefer-inline')
   String _unpackString(int header) {
@@ -296,5 +298,12 @@ extension type Unpacker._(_Internal _i) {
       result.add(unpack());
     }
     return result;
+  }
+
+  /// Releases resources associated with the unpacker.
+  ///
+  /// Currently a no-op, but provided for symmetry with [Packer.dispose].
+  void dispose() {
+    // No-op for now
   }
 }

@@ -367,8 +367,7 @@ void main() {
     });
 
     test('Empty group data', () {
-      final mpack = MessagePack()
-        ..registerGroup(extId: 10, builder: (g) {});
+      final mpack = MessagePack()..registerGroup(extId: 10, builder: (g) {});
       final data = Uint8List.fromList([0xc7, 0x00, 0x0a]);
       expect(
         () => mpack.unpack<dynamic>(data),

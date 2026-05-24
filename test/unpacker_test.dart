@@ -549,6 +549,22 @@ void main() {
         'm': 3,
       });
     });
+
+    test('handles duplicate keys by taking the last value', () {
+      final buffer = Uint8List.fromList([
+        0x82, // fixmap(2)
+        0xa1, 0x61, 1, // "a": 1
+        0xa1, 0x61, 2, // "a": 2
+      ]);
+
+      final resultOrder = deserialize(buffer, preserveMapOrder: true)! as Map;
+      expect(resultOrder['a'], 2);
+      expect(resultOrder.length, 1);
+
+      final resultNoOrder = deserialize(buffer)! as Map;
+      expect(resultNoOrder['a'], 2);
+      expect(resultNoOrder.length, 1);
+    });
   });
 
   group('deserializeAll', () {
@@ -699,5 +715,9 @@ void main() {
       expect(result, [true, false, null]);
       expect(result.length, 3);
     });
+  });
+
+  test('Unpacker.dispose() can be called without error', () {
+    Unpacker(buffer: Uint8List(0)).dispose();
   });
 }

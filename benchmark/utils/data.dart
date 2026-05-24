@@ -49,7 +49,7 @@ final user = User(
   email: 'alice@example.com',
   created: DateTime.utc(3000, 1, 1, 12, 32, 5, 999, 999),
   updated: DateTime.utc(1969, 12, 31, 23, 59, 59, 999, 999),
-  data: .fromList(List.generate(100, (index) => index)),
+  data: Uint8List.fromList(List.generate(100, (index) => index)),
   addresses: [
     const Address(
       street: '123 Main St',

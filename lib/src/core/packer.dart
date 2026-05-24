@@ -47,10 +47,10 @@ typedef _Data = ({BinaryWriter writer, EncodeExt? encodeExt});
 
 extension type Packer._(_Data _data) {
   Packer({EncodeExt? encodeExt, int initialBufferSize = 1024})
-      : _data = (
-          writer: BinaryWriterPool.acquire(initialBufferSize),
-          encodeExt: encodeExt,
-        );
+    : _data = (
+        writer: BinaryWriterPool.acquire(initialBufferSize),
+        encodeExt: encodeExt,
+      );
 
   BinaryWriter get _wr => _data.writer;
   EncodeExt? get _ext => _data.encodeExt;
@@ -190,8 +190,8 @@ extension type Packer._(_Data _data) {
   @pragma('vm:prefer-inline')
   void packDouble(double value) {
     _wr
-        ..writeUint8(fFloat64)
-        ..writeFloat64(value);
+      ..writeUint8(fFloat64)
+      ..writeFloat64(value);
   }
 
   @pragma('vm:prefer-inline')
@@ -361,14 +361,13 @@ extension type Packer._(_Data _data) {
     }
 
     _wr
-        ..writeInt8(type)
-        ..writeBytes(data);
+      ..writeInt8(type)
+      ..writeBytes(data);
   }
 
   @pragma('vm:prefer-inline')
   void packTimestamp(DateTime value) {
-    final micro =
-        (value.isUtc ? value : value.toUtc()).microsecondsSinceEpoch;
+    final micro = (value.isUtc ? value : value.toUtc()).microsecondsSinceEpoch;
     const million = 1_000_000;
     final sec = (micro / million).floor();
     final nano = ((micro % million + million) % million) * 1_000;
@@ -378,9 +377,9 @@ extension type Packer._(_Data _data) {
       // Timestamp 32 — 1970..2106, no nanoseconds
       if (nano == 0 && sec <= limitUint32) {
         _wr
-            ..writeUint8(fFixExt4)
-            ..writeInt8(extTypeTimestamp)
-            ..writeUint32(sec);
+          ..writeUint8(fFixExt4)
+          ..writeInt8(extTypeTimestamp)
+          ..writeUint32(sec);
         return;
       }
 
@@ -394,18 +393,18 @@ extension type Packer._(_Data _data) {
       final low32 = sec & 0xFFFFFFFF;
 
       _wr
-          ..writeUint8(fFixExt8)
-          ..writeInt8(extTypeTimestamp)
-          ..writeUint32(high32)
-          ..writeUint32(low32);
+        ..writeUint8(fFixExt8)
+        ..writeInt8(extTypeTimestamp)
+        ..writeUint32(high32)
+        ..writeUint32(low32);
     } else {
       // Timestamp 96 — before 1970 or after ~2514
       _wr
-          ..writeUint8(fExt8)
-          ..writeUint8(12)
-          ..writeInt8(extTypeTimestamp)
-          ..writeUint32(nano)
-          ..writeInt64(sec);
+        ..writeUint8(fExt8)
+        ..writeUint8(12)
+        ..writeInt8(extTypeTimestamp)
+        ..writeUint32(nano)
+        ..writeInt64(sec);
     }
   }
 
