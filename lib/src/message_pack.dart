@@ -17,8 +17,6 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:pro_binary/pro_binary.dart';
-
 import 'core/exception.dart';
 import 'core/packer.dart';
 import 'core/unpacker.dart';
@@ -150,7 +148,9 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   /// Registers a group of related types under a single [extId].
   ///
   /// Each type in the group gets a unique `subId` (integer). The `subId` is
-  /// automatically prepended to the encoded payload using varUint encoding.
+  /// automatically prepended to the encoded payload using standard MessagePack
+  /// integer encoding. This ensures that the entire extension payload remains
+  /// a valid MessagePack stream, making it easy to decode in any language.
   ///
   /// This approach is ideal for:
   /// - **Organized type families**: Related models that share a namespace.
@@ -207,8 +207,9 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
         if (data.isEmpty) {
           throw const MessagePackConfigurationException('Empty data.', '');
         }
-        final reader = BinaryReader(data);
-        final subId = reader.readVarUint();
+        // subId is encoded as a standard MessagePack integer.
+        final unpacker = Unpacker(buffer: data);
+        final subId = unpacker.unpackInt();
         final sub = subs[subId];
         if (sub == null) {
           throw MessagePackConfigurationException(
@@ -216,7 +217,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
             'Make sure all sub-types are registered via group.add().',
           );
         }
-        return sub.decode(reader.readRemainingBytes(), ctx);
+        return sub.decode(unpacker.remainingBytes, ctx);
       },
     );
   }
@@ -307,16 +308,21 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
       return payload;
     }
 
-    // Group extensions — prefix payload with subId (varUint encoded).
-    return BinaryWriterPool.withWriter(
-      (w) {
-        w
-          ..writeVarUint(subId)
-          ..writeBytes(payload);
-        return w.takeBytes();
-      },
-      payload.length + 5,
-    );
+    // Group extensions — prefix payload with subId (MessagePack integer).
+    // This makes the entire payload a valid MessagePack stream.
+    // 9 bytes is the maximum size a MessagePack integer can take.
+    final packer = Packer(initialBufferSize: payload.length + 9);
+    try {
+      packer
+        ..packInt(subId)
+        // We don't want to pack payload as binary, but append its raw bytes
+        // because the encoder already returned them as a packed MessagePack
+        // blob.
+        ..appendRaw(payload);
+      return packer.takeBytes();
+    } finally {
+      packer.dispose();
+    }
   }
 
   // Single-callback decoder for the Unpacker

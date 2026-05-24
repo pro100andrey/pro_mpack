@@ -42,6 +42,9 @@ extension type Unpacker._(_Internal _i) {
   DecodeExt? get _ext => _i.decodeExt;
   bool get hasBytesAvailable => _rd.availableBytes > 0;
 
+  /// Returns the bytes remaining in the buffer from the current position.
+  Uint8List get remainingBytes => _rd.readRemainingBytes();
+
   @pragma('vm:prefer-inline')
   int unpackInt() => _unpackInt(_rd.readUint8());
 

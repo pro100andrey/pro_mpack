@@ -414,6 +414,13 @@ extension type Packer._(_Data _data) {
     }
   }
 
+  /// Appends [bytes] directly to the buffer without any encoding.
+  ///
+  /// Use this only when [bytes] are already in MessagePack format.
+  void appendRaw(Uint8List bytes) {
+    _wr.writeBytes(bytes);
+  }
+
   /// Returns the serialized bytes and releases the internal buffer.
   ///
   /// After calling this method, the serializer should not be used again

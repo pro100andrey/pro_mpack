@@ -139,6 +139,8 @@ mpack.register<MyType>(
 
 MessagePack extension IDs are limited to the range -128 to 127 (256 values total). When you have many related types, registering each type separately quickly exhausts this space. `registerGroup` solves this by letting you group multiple subtypes under a single extension ID — each subtype uses an internal `subId` to distinguish itself.
 
+The `subId` is encoded using standard MessagePack integer format, ensuring that the entire extension payload is a valid MessagePack stream. This makes the data perfectly compatible with standard-compliant decoders in any language.
+
 This is ideal for:
 - **Organized type families**: Related models that share a namespace (e.g., all `User`-related types)
 - **ID conservation**: Reducing the number of extension IDs consumed when you have many small types
@@ -150,7 +152,7 @@ mpack.registerGroup(
     group.add<Circle>(
       subId: 1,
       encoder: (c, ctx) => ctx.pack(c.radius),
-      decoder: (d, ctx) => Circle(ctx.unpack(d)),
+      decoder: (d, ctx) => Circle(ctx.unpack<double>(d)),
     );
     group.add<Rectangle>(
       subId: 2,
