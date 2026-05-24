@@ -310,7 +310,10 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
 
     // Group extensions — prefix payload with subId (MessagePack integer).
     // This makes the entire payload a valid MessagePack stream.
-    // 9 bytes is the maximum size a MessagePack integer can take.
+    //
+    // We pre-allocate payload.length + 9 bytes to avoid buffer reallocation.
+    // 9 bytes is the absolute maximum size a MessagePack integer can take
+    // (1 byte for the format header + 8 bytes for a 64-bit integer payload).
     final packer = Packer(initialBufferSize: payload.length + 9);
     try {
       packer
@@ -455,14 +458,18 @@ class MessagePackGroup {
 
 class _MessagePackEncoder extends Converter<Object?, Uint8List> {
   _MessagePackEncoder(this._mp);
+
   final MessagePack _mp;
+
   @override
   Uint8List convert(Object? input) => _mp.pack(input);
 }
 
 class _MessagePackDecoder extends Converter<Uint8List, Object?> {
   _MessagePackDecoder(this._mp);
+
   final MessagePack _mp;
+
   @override
   Object? convert(Uint8List input) => _mp.unpack(input);
 }

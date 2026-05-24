@@ -272,6 +272,9 @@ extension type Unpacker._(_Internal _i) {
         );
       case 8:
         final data64 = _rd.readUint64();
+        // TS64 format: 30 bits for nanoseconds, 34 bits for seconds.
+        // nanoSeconds = data64 >> 34
+        // seconds = data64 & 0x3FFFFFFFF (34 bits mask)
         final nanoSeconds = (data64 >> 34) & 0x3FFFFFFF;
         final seconds = data64 & 0x3FFFFFFFF;
         final microseconds = seconds * 1000000 + nanoSeconds ~/ 1000;

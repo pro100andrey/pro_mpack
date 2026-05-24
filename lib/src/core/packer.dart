@@ -383,10 +383,13 @@ extension type Packer._(_Data _data) {
         return;
       }
 
-      // Timestamp 64 — 1970..~2514, with nanoseconds
+      // Timestamp 64 — 1970..~2514, with nanoseconds.
       //
-      // IMPORTANT: Dart's bitwise operators work on 64-bit integers on native
-      // platforms but are restricted to 32 bits on Web (Dart2JS).
+      // IMPORTANT: MessagePack TS64 format stores nanoseconds in the upper
+      // 30 bits and seconds in the lower 34 bits of an 8-byte unsigned integer.
+      //
+      // Dart's bitwise operators work on 64-bit integers on native platforms
+      // but are restricted to 32 bits on Web (Dart2JS).
       // To ensure cross-platform correctness, we split the 64-bit payload
       // into two 32-bit writes.
       final high32 = (nano << 2) | (sec ~/ 0x100000000);
