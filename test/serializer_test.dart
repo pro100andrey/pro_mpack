@@ -315,28 +315,28 @@ void main() {
 
   // Extension formats
   test('serializes fixext 1 format correctly', () {
-    final extEncoder = TestExtEncoder();
+    final extEncoder = createCustomEncoder();
     final result = serialize(
       CustomExtension(1, Uint8List.fromList([42])),
-      extEncoder: extEncoder,
+      encodeExt: extEncoder,
     );
     expect(result, Uint8List.fromList([0xd4 /* fixext 1 */, 1, 42]));
   });
 
   test('serializes fixext 2 format correctly', () {
-    final extEncoder = TestExtEncoder();
+    final extEncoder = createCustomEncoder();
     final result = serialize(
       CustomExtension(2, Uint8List.fromList([42, 43])),
-      extEncoder: extEncoder,
+      encodeExt: extEncoder,
     );
     expect(result, Uint8List.fromList([0xd5 /* fixext 2 */, 2, 42, 43]));
   });
 
   test('serializes fixext 4 format correctly', () {
-    final extEncoder = TestExtEncoder();
+    final extEncoder = createCustomEncoder();
     final result = serialize(
       CustomExtension(3, Uint8List.fromList([42, 43, 44, 45])),
-      extEncoder: extEncoder,
+      encodeExt: extEncoder,
     );
     expect(
       result,
@@ -345,13 +345,13 @@ void main() {
   });
 
   test('serializes fixext 8 format correctly', () {
-    final extEncoder = TestExtEncoder();
+    final extEncoder = createCustomEncoder();
     final result = serialize(
       CustomExtension(
         4,
         Uint8List.fromList([42, 43, 44, 45, 46, 47, 48, 49]),
       ),
-      extEncoder: extEncoder,
+      encodeExt: extEncoder,
     );
     expect(
       result,
@@ -362,7 +362,7 @@ void main() {
   });
 
   test('serializes fixext 16 format correctly', () {
-    final extEncoder = TestExtEncoder();
+    final extEncoder = createCustomEncoder();
     final result = serialize(
       CustomExtension(
         5,
@@ -385,7 +385,7 @@ void main() {
           57,
         ]),
       ),
-      extEncoder: extEncoder,
+      encodeExt: extEncoder,
     );
     expect(
       result,
@@ -454,9 +454,9 @@ void main() {
   test(
     'throws MessagePackUnsupportedTypeException for unsupported ext type',
     () {
-      final extEncoder = TestExtEncoder();
+      final extEncoder = createCustomEncoder();
       expect(
-        () => serialize(RegExp(''), extEncoder: extEncoder),
+        () => serialize(RegExp(''), encodeExt: extEncoder),
         throwsA(isA<MessagePackUnsupportedTypeException>()),
       );
     },
@@ -498,11 +498,11 @@ void main() {
 
   // Extension format tests (ext 8, ext 16, ext 32)
   test('serializes ext 8 format correctly', () {
-    final extEncoder = TestExtEncoder();
+    final extEncoder = createCustomEncoder();
     final data = Uint8List.fromList(List.filled(32, 42));
     final result = serialize(
       CustomExtension(10, data),
-      extEncoder: extEncoder,
+      encodeExt: extEncoder,
     );
     expect(
       result.sublist(0, 3),
@@ -511,11 +511,11 @@ void main() {
   });
 
   test('serializes ext 16 format correctly', () {
-    final extEncoder = TestExtEncoder();
+    final extEncoder = createCustomEncoder();
     final data = Uint8List.fromList(List.filled(256, 42));
     final result = serialize(
       CustomExtension(11, data),
-      extEncoder: extEncoder,
+      encodeExt: extEncoder,
     );
     expect(
       result.sublist(0, 4),
@@ -524,11 +524,11 @@ void main() {
   });
 
   test('serializes ext 32 format correctly', () {
-    final extEncoder = TestExtEncoder();
+    final extEncoder = createCustomEncoder();
     final data = Uint8List.fromList(List.filled(70000, 42));
     final result = serialize(
       CustomExtension(12, data),
-      extEncoder: extEncoder,
+      encodeExt: extEncoder,
     );
     expect(
       result.sublist(0, 6),
@@ -845,10 +845,10 @@ void main() {
       ]);
 
       // Verify we can deserialize each value separately
-      final deserializer = Deserializer(result);
-      expect(deserializer.decode(), 42);
-      expect(deserializer.decode(), 'test');
-      expect(deserializer.decode(), {'key': 'value'});
+      final deserializer = Unpacker(buffer: result);
+      expect(deserializer.unpack(), 42);
+      expect(deserializer.unpack(), 'test');
+      expect(deserializer.unpack(), {'key': 'value'});
       expect(deserializer.hasBytesAvailable, false);
     });
 
@@ -904,12 +904,12 @@ void main() {
       ]);
 
       // Verify deserialization
-      final deserializer = Deserializer(result);
-      expect(deserializer.decode(), {
+      final deserializer = Unpacker(buffer: result);
+      expect(deserializer.unpack(), {
         'users': [1, 2, 3],
       });
-      expect(deserializer.decode(), [true, false]);
-      expect(deserializer.decode(), 'end');
+      expect(deserializer.unpack(), [true, false]);
+      expect(deserializer.unpack(), 'end');
     });
   });
 
@@ -925,30 +925,30 @@ void main() {
 
   group('Serializer Edge Cases', () {
     test('Iterable is not List', () {
-      final s = Serializer()..encode({1, 2, 3}); // Set is Iterable but not List
+      final s = Packer()..pack({1, 2, 3}); // Set is Iterable but not List
       final bytes = s.takeBytes();
-      final d = Deserializer(bytes);
-      expect(d.decode(), [1, 2, 3]);
+      final d = Unpacker(buffer: bytes);
+      expect(d.unpack(), [1, 2, 3]);
     });
 
-    test('writeExt with resolvedType but no extEncoder', () {
-      final s = Serializer(); // No extEncoder
+    test('encodeExt returns null for unsupported type', () {
+      final s = Packer(); // No encodeExt
       expect(
-        () => s.writeExt(Object(), 10),
+        () => s.pack(Object()),
         throwsA(
-          isA<MessagePackConfigurationException>().having(
+          isA<MessagePackUnsupportedTypeException>().having(
             (e) => e.message,
             'message',
-            contains('Unable to encode object'),
+            contains("Don't know how to serialize type"),
           ),
         ),
       );
     });
 
-    test('writeExt invalid type range', () {
-      final s = Serializer(extEncoder: _MockInvalidTypeEncoder());
+    test('encodeExt returns invalid type range', () {
+      final s = Packer(encodeExt: _MockInvalidTypeEncoder());
       expect(
-        () => s.encode(Object()),
+        () => s.pack(Object()),
         throwsA(
           isA<MessagePackConfigurationException>().having(
             (e) => e.message,
@@ -960,23 +960,17 @@ void main() {
     });
 
     test('writeExt success path in encode', () {
-      final s = Serializer(extEncoder: _MockSuccessEncoder())..encode(Object());
+       final s = Packer(encodeExt: _MockSuccessEncoder())..pack(Object());
       final bytes = s.takeBytes();
       expect(bytes, [0xd4, 0x0a, 0x00]);
     });
   });
 }
 
-class _MockInvalidTypeEncoder implements ExtEncoder {
-  @override
-  int? extTypeForObject(Object? object) => 200;
-  @override
-  Uint8List encodeObject(Object? object) => Uint8List(0);
+class _MockInvalidTypeEncoder {
+  ExtEncoded? call(Object? value) => (type: 200, data: Uint8List(0));
 }
 
-class _MockSuccessEncoder implements ExtEncoder {
-  @override
-  int? extTypeForObject(Object? object) => 10;
-  @override
-  Uint8List encodeObject(Object? object) => Uint8List.fromList([0]);
+class _MockSuccessEncoder {
+  ExtEncoded? call(Object? value) => (type: 10, data: Uint8List.fromList([0]));
 }

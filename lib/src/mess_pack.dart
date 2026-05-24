@@ -18,9 +18,9 @@ import 'dart:typed_data';
 
 import 'package:pro_binary/pro_binary.dart';
 
-import 'core/deserializer.dart';
 import 'core/exception.dart';
-import 'core/serializer.dart';
+import 'core/packer.dart';
+import 'core/unpacker.dart';
 
 // ---------------------------------------------------------------------------
 // Public type aliases
@@ -79,7 +79,7 @@ abstract interface class MessPackCtx {
 /// final value = mp.unpack<BigInt>(bytes);
 /// ```
 class MessPack extends Codec<Object?, Uint8List>
-    implements MessPackCtx, ExtEncoder, ExtDecoder {
+    implements MessPackCtx {
   /// Creates a [MessPack] instance.
   ///
   /// [extensions] — optional callback to register custom types.
@@ -225,12 +225,12 @@ class MessPack extends Codec<Object?, Uint8List>
 
   @override
   Uint8List pack(Object? value) {
-    final s = Serializer(
-      extEncoder: this,
+    final s = Packer(
+      encodeExt: _encodeExt,
       initialBufferSize: bufferSize,
     );
     try {
-      s.encode(value);
+      s.pack(value);
       return s.takeBytes();
     } finally {
       s.dispose();
@@ -239,14 +239,12 @@ class MessPack extends Codec<Object?, Uint8List>
 
   @override
   Uint8List packAll(Iterable<Object?> values) {
-    final s = Serializer(
-      extEncoder: this,
+    final s = Packer(
+      encodeExt: _encodeExt,
       initialBufferSize: bufferSize,
     );
     try {
-      for (final v in values) {
-        s.encode(v);
-      }
+      s.packAll(values);
       return s.takeBytes();
     } finally {
       s.dispose();
@@ -255,55 +253,47 @@ class MessPack extends Codec<Object?, Uint8List>
 
   @override
   T unpack<T>(Uint8List data) =>
-      Deserializer(data, extDecoder: this).decode() as T;
+      Unpacker(buffer: data, decodeExt: _decodeExt).unpack() as T;
 
   @override
   List<T> unpackAll<T>(Uint8List data) {
-    final de = Deserializer(data, extDecoder: this);
+    final de = Unpacker(buffer: data, decodeExt: _decodeExt);
     final result = <T>[];
     while (de.hasBytesAvailable) {
-      result.add(de.decode() as T);
+      result.add(de.unpack() as T);
     }
     return result;
   }
 
   // -----------------------------------------------------------------------
-  // ExtEncoder — called by Serializer.encode()
+  // Single-callback encoder for the Packer
   // -----------------------------------------------------------------------
 
-  @override
-  int? extTypeForObject(Object? object) {
-    if (object == null) {
-      return null;
-    }
-
-    final type = object.runtimeType;
+  ExtEncoded? _encodeExt(Object value) {
+    final type = value.runtimeType;
 
     // Hot-path: same type as last call (very common in list serialization).
     if (identical(type, _lastType)) {
-      return _lastExt?.id;
+      final ext = _lastExt;
+      if (ext != null) {
+        return (type: ext.id, data: _groupPayload(ext, value));
+      }
+      return null;
     }
 
     final ext = _types[type];
     _lastType = type;
     _lastExt = ext;
 
-    return ext?.id;
-  }
-
-  @override
-  Uint8List encodeObject(Object? object) {
-    // _lastExt was already resolved by extTypeForObject (always called first).
-    final ext = _lastExt;
-    if (ext == null) {
-      throw MessagePackUnsupportedTypeException(
-        object.runtimeType,
-        'No encoder registered for ${object.runtimeType}.',
-        'Register this type via MessPack.register() or registerGroup().',
-      );
+    if (ext != null) {
+      return (type: ext.id, data: _groupPayload(ext, value));
     }
 
-    final payload = ext.encode(object, this);
+    return null;
+  }
+
+  Uint8List _groupPayload(_Ext ext, Object? value) {
+    final payload = ext.encode(value, this);
 
     // Non-group extensions — payload is returned as-is.
     final subId = ext.subId;
@@ -324,11 +314,10 @@ class MessPack extends Codec<Object?, Uint8List>
   }
 
   // -----------------------------------------------------------------------
-  // ExtDecoder — called by Deserializer.decode()
+  // Single-callback decoder for the Unpacker
   // -----------------------------------------------------------------------
 
-  @override
-  Object? decodeObject(int extType, Uint8List data) {
+  Object? _decodeExt(int extType, Uint8List data) {
     final ext = _decoders[extType];
     if (ext == null) {
       throw MessagePackConfigurationException(

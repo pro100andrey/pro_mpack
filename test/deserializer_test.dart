@@ -22,7 +22,7 @@ void main() {
         isA<MessagePackFormatException>().having(
           (e) => e.message,
           'message',
-          contains('reserved and never used'),
+          contains('never used'),
         ),
       ),
     );
@@ -40,7 +40,7 @@ void main() {
         isA<MessagePackFormatException>().having(
           (e) => e.message,
           'message',
-          contains('reserved and never used'),
+          contains('never used'),
         ),
       ),
     );
@@ -58,7 +58,7 @@ void main() {
         isA<MessagePackFormatException>().having(
           (e) => e.message,
           'message',
-          contains('reserved and never used'),
+          contains('never used'),
         ),
       ),
     );
@@ -331,7 +331,7 @@ void main() {
     ); // Custom extension
     final result = deserialize(
       buffer,
-      extDecoder: CustomExtDecoder(),
+      decodeExt: createCustomDecoder(),
     );
     expect(result, 'Custom ext type 1 with data [42]');
   });
@@ -342,7 +342,7 @@ void main() {
     ); // Custom extension
     final result = deserialize(
       buffer,
-      extDecoder: CustomExtDecoder(),
+      decodeExt: createCustomDecoder(),
     );
     expect(result, 'Custom ext type 2 with data [42, 43]');
   });
@@ -353,7 +353,7 @@ void main() {
     ); // Custom extension
     final result = deserialize(
       buffer,
-      extDecoder: CustomExtDecoder(),
+      decodeExt: createCustomDecoder(),
     );
     expect(result, 'Custom ext type 3 with data [42, 43, 44, 45]');
   });
@@ -364,7 +364,7 @@ void main() {
     ); // Custom extension
     final result = deserialize(
       buffer,
-      extDecoder: CustomExtDecoder(),
+      decodeExt: createCustomDecoder(),
     );
     expect(
       result,
@@ -379,7 +379,7 @@ void main() {
     ]); // Custom extension
     final result = deserialize(
       buffer,
-      extDecoder: CustomExtDecoder(),
+      decodeExt: createCustomDecoder(),
     );
     expect(
       result,
@@ -440,7 +440,7 @@ void main() {
     );
     final result = deserialize(
       buffer,
-      extDecoder: CustomExtDecoder(),
+      decodeExt: createCustomDecoder(),
     );
     expect(result, 'Custom ext type 10 with data [1, 2, 3]');
   });
@@ -452,7 +452,7 @@ void main() {
     );
     final result = deserialize(
       buffer,
-      extDecoder: CustomExtDecoder(),
+      decodeExt: createCustomDecoder(),
     );
     expect(result, 'Custom ext type 11 with data $data');
   });
@@ -464,7 +464,7 @@ void main() {
     ); // length 300, type 12
     final result = deserialize(
       buffer,
-      extDecoder: CustomExtDecoder(),
+      decodeExt: createCustomDecoder(),
     );
     expect(result, 'Custom ext type 12 with data $data');
   });

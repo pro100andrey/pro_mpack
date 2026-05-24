@@ -358,10 +358,10 @@ void main() {
       );
     });
 
-    test('Unregistered extension ID in decodeObject', () {
+    test('Unregistered extension ID in unpack', () {
       final mpack = MessagePack();
       expect(
-        () => mpack.decodeObject(50, Uint8List(0)),
+        () => mpack.unpack<dynamic>(Uint8List.fromList([0xd4, 0x32, 0x00])),
         throwsA(isA<MessagePackConfigurationException>()),
       );
     });
@@ -413,15 +413,10 @@ void main() {
       );
     });
 
-    test('extTypeForObject for null', () {
-      final mpack = MessagePack();
-      expect(mpack.extTypeForObject(null), isNull);
-    });
-
-    test('encodeObject for unregistered type', () {
+    test('pack for unregistered type throws', () {
       final mpack = MessagePack();
       expect(
-        () => mpack.encodeObject(Object()),
+        () => mpack.pack(Object()),
         throwsA(isA<MessagePackUnsupportedTypeException>()),
       );
     });

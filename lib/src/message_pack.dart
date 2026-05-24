@@ -7,9 +7,9 @@ import 'dart:typed_data';
 
 import 'package:pro_binary/pro_binary.dart';
 
-import 'core/deserializer.dart';
 import 'core/exception.dart';
-import 'core/serializer.dart';
+import 'core/packer.dart';
+import 'core/unpacker.dart';
 
 /// A function type that encodes a value of type [T] into bytes.
 typedef Encoder<T> = Uint8List Function(T value, MessagePackContext context);
@@ -38,7 +38,7 @@ abstract interface class MessagePackContext {
 
 /// A class for high-level MessagePack operations with custom extension support.
 class MessagePack extends Codec<dynamic, Uint8List>
-    implements MessagePackContext, ExtEncoder, ExtDecoder {
+    implements MessagePackContext {
   /// Creates a [MessagePack] instance.
   MessagePack({
     void Function(MessagePack)? extensions,
@@ -212,12 +212,12 @@ class MessagePack extends Codec<dynamic, Uint8List>
 
   @override
   Uint8List pack<T>(T value) {
-    final s = Serializer(
-      extEncoder: this,
+    final s = Packer(
+      encodeExt: _encodeExt,
       initialBufferSize: defaultBufferSize,
     );
     try {
-      s.encode(value);
+      s.pack(value);
       return s.takeBytes();
     } finally {
       s.dispose();
@@ -226,15 +226,12 @@ class MessagePack extends Codec<dynamic, Uint8List>
 
   @override
   Uint8List packAll<T>(Iterable<T> values) {
-    final s = Serializer(
-      extEncoder: this,
+    final s = Packer(
+      encodeExt: _encodeExt,
       initialBufferSize: defaultBufferSize,
     );
     try {
-      for (final value in values) {
-        s.encode(value);
-      }
-
+      s.packAll(values);
       return s.takeBytes();
     } finally {
       s.dispose();
@@ -243,41 +240,35 @@ class MessagePack extends Codec<dynamic, Uint8List>
 
   @override
   T unpack<T>(Uint8List data) {
-    final d = Deserializer(data, extDecoder: this);
-    return d.decode() as T;
+    final d = Unpacker(buffer: data, decodeExt: _decodeExt);
+    return d.unpack() as T;
   }
 
   @override
   List<T> unpackAll<T>(Uint8List data) {
-    final d = Deserializer(data, extDecoder: this);
+    final d = Unpacker(buffer: data, decodeExt: _decodeExt);
     final res = <dynamic>[];
     while (d.hasBytesAvailable) {
-      res.add(d.decode());
+      res.add(d.unpack());
     }
     return res as List<T>;
   }
 
-  @override
-  Converter<Object?, Uint8List> get encoder => _MessagePackEncoder(this);
-  @override
-  Converter<Uint8List, Object?> get decoder => _MessagePackDecoder(this);
-
-  @override
-  int? extTypeForObject(Object? object) {
-    if (object == null) {
-      return null;
-    }
-
-    final type = object.runtimeType;
+  /// Single-callback encoder for the [Packer].
+  ExtEncoded? _encodeExt(Object value) {
+    final type = value.runtimeType;
 
     if (_typeMap.containsKey(type)) {
-      return _typeMap[type]?.id;
+      final ext = _typeMap[type];
+      if (ext != null) {
+        return (type: ext.id, data: ext.encode(value, this));
+      }
     }
 
     for (final ext in _polymorphic) {
-      if (ext.canHandle(object)) {
+      if (ext.canHandle(value)) {
         _typeMap[type] = ext;
-        return ext.id;
+        return (type: ext.id, data: ext.encode(value, this));
       }
     }
 
@@ -285,34 +276,8 @@ class MessagePack extends Codec<dynamic, Uint8List>
     return null;
   }
 
-  @override
-  Uint8List encodeObject(Object? object) {
-    if (object == null) {
-      throw const MessagePackConfigurationException('Null.', '');
-    }
-
-    final type = object.runtimeType;
-
-    if (_typeMap.containsKey(type)) {
-      final ext = _typeMap[type];
-      if (ext != null) {
-        return ext.encode(object, this);
-      }
-    } else {
-      for (final e in _polymorphic) {
-        if (e.canHandle(object)) {
-          _typeMap[type] = e;
-          return e.encode(object, this);
-        }
-      }
-      _typeMap[type] = null;
-    }
-
-    throw MessagePackUnsupportedTypeException(type, 'No encoder.', '');
-  }
-
-  @override
-  Object? decodeObject(int extType, Uint8List data) {
+  /// Single-callback decoder for the [Unpacker].
+  Object? _decodeExt(int extType, Uint8List data) {
     final ext = _decoderMap[extType];
     if (ext == null) {
       throw const MessagePackConfigurationException('No decoder.', '');
@@ -320,7 +285,13 @@ class MessagePack extends Codec<dynamic, Uint8List>
 
     return ext.decode(data, this);
   }
-}
+
+  @override
+  Converter<Object?, Uint8List> get encoder => _MessagePackEncoder(this);
+  @override
+  Converter<Uint8List, Object?> get decoder => _MessagePackDecoder(this);
+
+ }
 
 class _MessagePackEncoder extends Converter<Object?, Uint8List> {
   _MessagePackEncoder(this._mpack);

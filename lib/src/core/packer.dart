@@ -1,16 +1,28 @@
+/// MessagePack serializer using a single-callback extension interface.
+///
+/// Key difference from the old [Serializer]:
+/// The old `ExtEncoder` required **two** calls per custom type:
+///   1. `extTypeForObject(object)` → `int?`   (hash lookup #1)
+///   2. `encodeObject(object)`     → `Uint8List` (hash lookup #2)
+///
+/// This serializer uses a single [EncodeExt] callback that returns both
+/// the ext type ID and the encoded payload in one shot — eliminating the
+/// redundant double-lookup at the protocol level.
+library;
+
 import 'dart:typed_data';
 
 import 'package:pro_binary/pro_binary.dart';
 
-import '../core/constants.dart';
-import '../core/exception.dart';
+import 'constants.dart';
+import 'exception.dart';
 
 /// Result of encoding a custom type.
 ///
 /// Contains the extension type ID and the encoded payload bytes.
 typedef ExtEncoded = ({int type, Uint8List data});
 
-/// Called by the [Pack] when it encounters a type it cannot natively
+/// Called by the [Packer] when it encounters a type it cannot natively
 /// handle.
 ///
 /// Should return the ext type ID and encoded payload, or `null` if the
@@ -28,7 +40,7 @@ typedef EncodeExt = ExtEncoded? Function(Object value);
 ///
 /// Example:
 /// ```dart
-/// final data = serializer.encode(Float(3.14)); // Encoded as float 32
+/// final data = packer.encode(Float(3.14)); // Encoded as float 32
 /// ```
 class Float {
   /// Creates a [Float] wrapper for the given [value].
@@ -43,12 +55,12 @@ class Float {
 
 typedef _Data = ({BinaryWriter writer, EncodeExt? encodeExt});
 
-extension type Pack._(_Data _data) {
-  Pack({EncodeExt? encodeExt, int initialBufferSize = 1024})
-    : _data = (
-        writer: BinaryWriterPool.acquire(initialBufferSize),
-        encodeExt: encodeExt,
-      );
+extension type Packer._(_Data _data) {
+  Packer({EncodeExt? encodeExt, int initialBufferSize = 1024})
+      : _data = (
+          writer: BinaryWriterPool.acquire(initialBufferSize),
+          encodeExt: encodeExt,
+        );
 
   BinaryWriter get _wr => _data.writer;
   EncodeExt? get _ext => _data.encodeExt;
@@ -188,8 +200,8 @@ extension type Pack._(_Data _data) {
   @pragma('vm:prefer-inline')
   void packDouble(double value) {
     _wr
-      ..writeUint8(fFloat64)
-      ..writeFloat64(value);
+        ..writeUint8(fFloat64)
+        ..writeFloat64(value);
   }
 
   @pragma('vm:prefer-inline')
@@ -359,13 +371,14 @@ extension type Pack._(_Data _data) {
     }
 
     _wr
-      ..writeInt8(type)
-      ..writeBytes(data);
+        ..writeInt8(type)
+        ..writeBytes(data);
   }
 
   @pragma('vm:prefer-inline')
   void packTimestamp(DateTime value) {
-    final micro = (value.isUtc ? value : value.toUtc()).microsecondsSinceEpoch;
+    final micro =
+        (value.isUtc ? value : value.toUtc()).microsecondsSinceEpoch;
     const million = 1_000_000;
     final sec = (micro / million).floor();
     final nano = ((micro % million + million) % million) * 1_000;
@@ -375,9 +388,9 @@ extension type Pack._(_Data _data) {
       // Timestamp 32 — 1970..2106, no nanoseconds
       if (nano == 0 && sec <= limitUint32) {
         _wr
-          ..writeUint8(fFixExt4)
-          ..writeInt8(extTypeTimestamp)
-          ..writeUint32(sec);
+            ..writeUint8(fFixExt4)
+            ..writeInt8(extTypeTimestamp)
+            ..writeUint32(sec);
         return;
       }
 
@@ -391,18 +404,18 @@ extension type Pack._(_Data _data) {
       final low32 = sec & 0xFFFFFFFF;
 
       _wr
-        ..writeUint8(fFixExt8)
-        ..writeInt8(extTypeTimestamp)
-        ..writeUint32(high32)
-        ..writeUint32(low32);
+          ..writeUint8(fFixExt8)
+          ..writeInt8(extTypeTimestamp)
+          ..writeUint32(high32)
+          ..writeUint32(low32);
     } else {
       // Timestamp 96 — before 1970 or after ~2514
       _wr
-        ..writeUint8(fExt8)
-        ..writeUint8(12)
-        ..writeInt8(extTypeTimestamp)
-        ..writeUint32(nano)
-        ..writeInt64(sec);
+          ..writeUint8(fExt8)
+          ..writeUint8(12)
+          ..writeInt8(extTypeTimestamp)
+          ..writeUint32(nano)
+          ..writeInt64(sec);
     }
   }
 
