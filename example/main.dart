@@ -11,7 +11,7 @@ void main() {
         // supported by MessagePack
         ..registerBigInt()
         // Group for user-related types
-        ..registerGroup<dynamic>(
+        ..registerGroup(
           extId: 2,
           builder: (group) => group
             ..userCodec()

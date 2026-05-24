@@ -46,7 +46,7 @@ void main() {
     test('groups (declarative)', () {
       final mpack = MessagePack(
         extensions: (config) {
-          config.registerGroup<_MyDateTime>(
+          config.registerGroup(
             extId: 10,
             builder: (group) {
               group.add<_MyDateTime>(
@@ -87,7 +87,7 @@ void main() {
     test('subId >= 128 (varInt)', () {
       final mpack = MessagePack(
         extensions: (config) {
-          config.registerGroup<_MyType>(
+          config.registerGroup(
             extId: 5,
             builder: (group) {
               group.add<_MyType>(
@@ -269,7 +269,7 @@ void main() {
       test('throws MessagePackConfigurationException for DateTime', () {
         expect(
           () => MessagePack(
-            extensions: (c) => c.registerGroup<DateTime>(
+            extensions: (c) => c.registerGroup(
               extId: 1,
               builder: (group) {
                 group.add<DateTime>(
@@ -287,7 +287,7 @@ void main() {
       test('throws MessagePackConfigurationException for int', () {
         expect(
           () => MessagePack(
-            extensions: (c) => c.registerGroup<int>(
+            extensions: (c) => c.registerGroup(
               extId: 1,
               builder: (group) {
                 group.add<int>(
@@ -305,7 +305,7 @@ void main() {
       test('throws MessagePackConfigurationException for String', () {
         expect(
           () => MessagePack(
-            extensions: (c) => c.registerGroup<String>(
+            extensions: (c) => c.registerGroup(
               extId: 1,
               builder: (group) {
                 group.add<String>(
@@ -323,7 +323,7 @@ void main() {
       test('throws MessagePackConfigurationException for List', () {
         expect(
           () => MessagePack(
-            extensions: (c) => c.registerGroup<List<dynamic>>(
+            extensions: (c) => c.registerGroup(
               extId: 1,
               builder: (group) {
                 group.add<List<dynamic>>(
@@ -368,7 +368,7 @@ void main() {
 
     test('Empty group data', () {
       final mpack = MessagePack()
-        ..registerGroup<Object>(extId: 10, builder: (g) {});
+        ..registerGroup(extId: 10, builder: (g) {});
       final data = Uint8List.fromList([0xc7, 0x00, 0x0a]);
       expect(
         () => mpack.unpack<dynamic>(data),
@@ -378,31 +378,31 @@ void main() {
 
     test('MessagePackGroup subtype not found in encode', () {
       final mpack = MessagePack()
-        ..registerGroup<Object>(
+        ..registerGroup(
           extId: 20,
           builder: (g) {
-            g.add<int>(
+            g.add<_MyType>(
               subId: 1,
-              encoder: (v, ctx) => ctx.pack(null),
-              decoder: (d, ctx) => 0,
+              encoder: (v, ctx) => ctx.pack(v.value),
+              decoder: (d, ctx) => _MyType(ctx.unpack<int>(d)),
             );
           },
         );
       expect(
-        () => mpack.pack(const _MyType(1)),
+        () => mpack.pack(Object()),
         throwsA(isA<MessagePackUnsupportedTypeException>()),
       );
     });
 
     test('MessagePackGroup subtype id not found in decode', () {
       final mpack = MessagePack()
-        ..registerGroup<Object>(
+        ..registerGroup(
           extId: 20,
           builder: (g) {
-            g.add<int>(
+            g.add<_MyType>(
               subId: 1,
-              encoder: (v, ctx) => ctx.pack(null),
-              decoder: (d, ctx) => 0,
+              encoder: (v, ctx) => ctx.pack(v.value),
+              decoder: (d, ctx) => _MyType(ctx.unpack<int>(d)),
             );
           },
         );
@@ -421,9 +421,9 @@ void main() {
       );
     });
 
-    test('MessagePackContext implements', () {
+    test('MessagePackCtx implements', () {
       const ctx = _FakeContext();
-      expect(ctx, isA<MessagePackContext>());
+      expect(ctx, isA<MessagePackCtx>());
     });
   });
 
@@ -469,12 +469,12 @@ class _MyDateTime {
   int get hashCode => value.hashCode;
 }
 
-class _FakeContext implements MessagePackContext {
+class _FakeContext implements MessagePackCtx {
   const _FakeContext();
   @override
-  Uint8List pack<T>(T value) => throw UnimplementedError();
+  Uint8List pack(Object? value) => throw UnimplementedError();
   @override
-  Uint8List packAll<T>(Iterable<T> values) => throw UnimplementedError();
+  Uint8List packAll(Iterable<Object?> values) => throw UnimplementedError();
   @override
   T unpack<T>(Uint8List data) => throw UnimplementedError();
   @override

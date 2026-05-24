@@ -541,7 +541,7 @@ void main() {
         0xa1, 0x61, 2, // "a": 2
         0xa1, 0x6d, 3, // "m": 3
       ]);
-      final result = deserialize(buffer, preserveMapOrder: false)! as Map;
+      final result = deserialize(buffer)! as Map;
       expect(result, isA<Map<dynamic, dynamic>>());
       expect(result, {
         'z': 1,

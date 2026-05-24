@@ -1,13 +1,8 @@
 /// MessagePack serializer using a single-callback extension interface.
 ///
-/// Key difference from the old [Serializer]:
-/// The old `ExtEncoder` required **two** calls per custom type:
-///   1. `extTypeForObject(object)` → `int?`   (hash lookup #1)
-///   2. `encodeObject(object)`     → `Uint8List` (hash lookup #2)
-///
-/// This serializer uses a single [EncodeExt] callback that returns both
-/// the ext type ID and the encoded payload in one shot — eliminating the
-/// redundant double-lookup at the protocol level.
+/// Uses a single [EncodeExt] callback that returns both the ext type ID
+/// and the encoded payload in one shot — eliminating the redundant
+/// double-lookup of the old two-method `ExtEncoder` approach.
 library;
 
 import 'dart:typed_data';
@@ -326,8 +321,8 @@ extension type Packer._(_Data _data) {
   ///
   /// [type] must be in the range -128..127.
   ///
-  /// Unlike the old `ExtEncoder.encodeObject`, this method takes the already-
-  /// resolved type ID and payload directly — no lookups, no callbacks.
+  /// Takes the already-resolved type ID and payload directly — no lookups,
+  /// no callbacks needed.
   @pragma('vm:prefer-inline')
   void writeExt(int type, Uint8List data) {
     if (type < -128 || type > 127) {

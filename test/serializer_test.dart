@@ -946,7 +946,7 @@ void main() {
     });
 
     test('encodeExt returns invalid type range', () {
-      final s = Packer(encodeExt: _MockInvalidTypeEncoder());
+      final s = Packer(encodeExt: _MockInvalidTypeEncoder().call);
       expect(
         () => s.pack(Object()),
         throwsA(
@@ -960,7 +960,7 @@ void main() {
     });
 
     test('writeExt success path in encode', () {
-       final s = Packer(encodeExt: _MockSuccessEncoder())..pack(Object());
+      final s = Packer(encodeExt: _MockSuccessEncoder().call)..pack(Object());
       final bytes = s.takeBytes();
       expect(bytes, [0xd4, 0x0a, 0x00]);
     });

@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:pro_mpack/src/message_pack_new.dart';
+import 'package:pro_mpack/src/message_pack.dart';
 
 import 'models.dart';
 

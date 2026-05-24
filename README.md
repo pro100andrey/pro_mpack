@@ -21,7 +21,7 @@ MessagePack is an efficient binary serialization format that's smaller and faste
 - Easy custom extension support with recursive packing/unpacking
 - Built-in `DateTime` timestamp support
 - **Float wrapper**: Force 32-bit float serialization with `Float`
-- **Groups**: Organise multiple related types under a single extension ID (great for polymorphism)
+- **Groups**: Organise multiple related types under a single extension ID
 - Reusable serializer/deserializer engines for low-level control
 
 📦 **Production Ready**
@@ -97,8 +97,8 @@ final mpack = MessagePack(
       decoder: (bytes, ctx) => BigInt.parse(ctx.unpack<String>(bytes)),
     );
 
-    // Register a group of related types under a common base class
-    config.registerGroup<dynamic>(
+    // Register a group of related types
+    config.registerGroup(
       extId: 2,
       builder: (group) {
         group.add<Address>(
@@ -137,15 +137,14 @@ mpack.register<MyType>(
 
 ### 3. Sub-registries (Groups)
 
-MessagePack extension IDs are limited to the range -128 to 127 (256 values total). When you have many related types or polymorphic hierarchies, registering each type separately quickly exhausts this space. `registerGroup` solves this by letting you group multiple subtypes under a single extension ID — each subtype uses an internal `subId` to distinguish itself.
+MessagePack extension IDs are limited to the range -128 to 127 (256 values total). When you have many related types, registering each type separately quickly exhausts this space. `registerGroup` solves this by letting you group multiple subtypes under a single extension ID — each subtype uses an internal `subId` to distinguish itself.
 
 This is ideal for:
-- **Polymorphic types**: A base class with many subclasses (e.g., `Shape` → `Circle`, `Square`, `Triangle`)
 - **Organized type families**: Related models that share a namespace (e.g., all `User`-related types)
 - **ID conservation**: Reducing the number of extension IDs consumed when you have many small types
 
 ```dart
-mpack.registerGroup<Shape>(
+mpack.registerGroup(
   extId: 20,
   builder: (group) {
     group.add<Circle>(
@@ -153,10 +152,13 @@ mpack.registerGroup<Shape>(
       encoder: (c, ctx) => ctx.pack(c.radius),
       decoder: (d, ctx) => Circle(ctx.unpack(d)),
     );
-    group.add<Square>(
+    group.add<Rectangle>(
       subId: 2,
-      encoder: (s, ctx) => ctx.pack(s.side),
-      decoder: (d, ctx) => Square(ctx.unpack(d)),
+      encoder: (r, ctx) => ctx.packAll([r.width, r.height]),
+      decoder: (d, ctx) {
+        final [w as double, h as double] = ctx.unpackAll(d);
+        return Rectangle(w, h);
+      },
     );
   },
 );

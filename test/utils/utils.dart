@@ -8,16 +8,12 @@ class CustomExtension {
   final Uint8List data;
 }
 
-DecodeExt createCustomDecoder() {
-  return (int extType, Uint8List data) =>
-      'Custom ext type $extType with data $data';
-}
+DecodeExt createCustomDecoder() =>
+    (extType, data) => 'Custom ext type $extType with data $data';
 
-EncodeExt createCustomEncoder() {
-  return (Object value) {
-    if (value is CustomExtension) {
-      return (type: value.type, data: value.data);
-    }
-    return null;
-  };
-}
+EncodeExt createCustomEncoder() => (value) {
+  if (value is CustomExtension) {
+    return (type: value.type, data: value.data);
+  }
+  return null;
+};
