@@ -1,13 +1,11 @@
-/// High-level MessagePack API — redesigned for maximum performance and
+/// High-level MessagePack API — designed for maximum performance and
 /// ergonomics.
 ///
 /// Key design decisions:
-/// - **Zero double-lookups**: Single-callback `EncodeExt`/`DecodeExt` returns
-///   `(extId, payload)` in one step.
-/// - **Flat O(1) everything**: All type → ext and extId → decoder lookups
-///   are direct HashMap hits.
+/// - **Direct lookup**: Efficient type → ext and extId → decoder lookups
+///   via HashMap.
 /// - **Unified group storage**: Groups register a single decoder-router entry,
-///   so decoding never needs type checks or casts.
+///   minimizing dispatch overhead during decoding.
 /// - **Hot-path optimization**: Last lookup is cached to avoid rehashing
 ///   identical types in a row (common in list serialization).
 /// - **ExtId validation**: Range -128..127 enforced at registration time.
@@ -151,10 +149,13 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
 
   /// Registers a group of related types under a single [extId].
   ///
-  /// Each type in the group gets a unique `subId` (0..N). The `subId` is
-  /// automatically prepended to the encoded payload:
-  /// - `subId < 256` → 1 byte prefix (fast path).
-  /// - `subId >= 256` → varUint prefix.
+  /// Each type in the group gets a unique `subId` (integer). The `subId` is
+  /// automatically prepended to the encoded payload using varUint encoding.
+  ///
+  /// This approach is ideal for:
+  /// - **Organized type families**: Related models that share a namespace.
+  /// - **ID conservation**: Reducing the number of extension IDs consumed
+  ///   when you have many small types.
   ///
   /// ```dart
   /// mp.registerGroup(

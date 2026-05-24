@@ -1,8 +1,6 @@
-/// MessagePack serializer using a single-callback extension interface.
+/// MessagePack serializer.
 ///
-/// Uses a single [EncodeExt] callback that returns both the ext type ID
-/// and the encoded payload in one shot — eliminating the redundant
-/// double-lookup of the old two-method `ExtEncoder` approach.
+/// Uses an [EncodeExt] callback to handle custom extension types.
 library;
 
 import 'dart:typed_data';
@@ -20,11 +18,8 @@ typedef ExtEncoded = ({int type, Uint8List data});
 /// Called by the [Packer] when it encounters a type it cannot natively
 /// handle.
 ///
-/// Should return the ext type ID and encoded payload, or `null` if the
+/// Returns the extension type ID and encoded payload, or `null` if the
 /// object is not a registered custom type.
-///
-/// This replaces the old two-method `ExtEncoder` interface with a single
-/// function call — no more double hash lookups.
 typedef EncodeExt = ExtEncoded? Function(Object value);
 
 /// A wrapper for explicitly serializing a [double] as a 32-bit float.
@@ -35,7 +30,7 @@ typedef EncodeExt = ExtEncoded? Function(Object value);
 ///
 /// Example:
 /// ```dart
-/// final data = packer.encode(Float(3.14)); // Encoded as float 32
+/// final data = packer.pack(Float(3.14)); // Encoded as float 32
 /// ```
 class Float {
   /// Creates a [Float] wrapper for the given [value].

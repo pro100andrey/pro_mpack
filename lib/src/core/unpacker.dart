@@ -1,7 +1,6 @@
-/// MessagePack deserializer with a single-callback extension interface.
+/// MessagePack deserializer.
 ///
-/// Uses a simple [DecodeExt] function typedef instead of the old
-/// `ExtDecoder` abstract mixin class. Same functionality, less ceremony.
+/// Uses a [DecodeExt] function to handle MessagePack extension types.
 library;
 
 import 'dart:collection';

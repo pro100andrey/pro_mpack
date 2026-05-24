@@ -21,7 +21,7 @@ MessagePack is an efficient binary serialization format that's smaller and faste
 - Easy custom extension support with recursive packing/unpacking
 - Built-in `DateTime` timestamp support
 - **Float wrapper**: Force 32-bit float serialization with `Float`
-- **Groups**: Organise multiple related types under a single extension ID
+- **Groups**: Organize multiple related types under a single extension ID
 - Reusable serializer/deserializer engines for low-level control
 
 📦 **Production Ready**
