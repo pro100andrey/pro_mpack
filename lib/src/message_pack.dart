@@ -130,7 +130,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
     required Encoder<T> encoder,
     required Decoder<T> decoder,
   }) {
-    _checkType(T);
+    _checkType<T>();
     _checkExtId(extId);
 
     final ext = _Ext(
@@ -376,15 +376,15 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
     }
   }
 
-  static void _checkType(Type t) {
-    if (t == dynamic || t == Object || t.toString() == 'Object?') {
+  static void _checkType<T>() {
+    if (T == dynamic || T == Object || T == _typeOf<Object?>()) {
       throw MessagePackConfigurationException(
-        "Cannot register the broad type '$t'.",
+        "Cannot register the broad type '$T'.",
         'Specify a concrete type parameter, e.g. register<MyClass>(...).',
       );
     }
 
-    const builtin = {
+    const builtin = <Type>{
       int,
       String,
       bool,
@@ -398,13 +398,15 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
       Float,
     };
 
-    if (builtin.contains(t)) {
+    if (builtin.contains(T)) {
       throw MessagePackConfigurationException(
-        "Type '$t' is a built-in MessagePack type.",
+        "Type '$T' is a built-in MessagePack type.",
         'Built-in types are handled automatically and cannot be overridden.',
       );
     }
   }
+
+  static Type _typeOf<T>() => T;
 }
 
 // Group builder — public class, private constructor
@@ -433,7 +435,7 @@ class MessagePackGroup {
     required Encoder<T> encoder,
     required Decoder<T> decoder,
   }) {
-    MessagePack._checkType(T);
+    MessagePack._checkType<T>();
 
     if (_subs.containsKey(subId)) {
       throw MessagePackConfigurationException(
