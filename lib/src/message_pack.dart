@@ -102,6 +102,9 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   /// (e.g. BigInt.parse returns _BigIntImpl, not BigInt).
   final List<_Ext> _sealedFallback = [];
 
+  /// Cache for types that are not registered and don't match any fallback.
+  final Set<Type> _ = HashSet();
+
   // Codec converters — created once.
   late final _enc = _MessagePackEncoder(this);
   late final _dec = _MessagePackDecoder(this);
@@ -294,13 +297,26 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
       return (type: ext.id, data: _groupPayload(ext, value));
     }
 
+    if (_unhandledTypes.contains(type)) {
+      return null;
+    }
+
     // Fallback for sealed classes where runtimeType != registered Type
     // (e.g. BigInt.parse returns _BigIntImpl, not BigInt)
     for (final fallback in _sealedFallback) {
       if (fallback.canHandle(value)) {
+        // Cache the found fallback for this specific runtimeType to ensure
+        // future lookups are O(1).
+        _types[type] = fallback;
+        _lastType = type;
+        _lastExt = fallback;
+
         return (type: fallback.id, data: _groupPayload(fallback, value));
       }
     }
+
+    // Mark as unhandled to avoid searching again.
+    _unhandledTypes.add(type);
 
     return null;
   }
