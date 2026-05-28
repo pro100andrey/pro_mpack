@@ -1,16 +1,22 @@
 /// High-level MessagePack API — designed for maximum performance and
 /// ergonomics.
 ///
+/// This library provides a high-performance MessagePack [Codec] implementation
+/// with support for custom extensions, type groups, and advanced performance
+/// optimizations like inline caching and zero-allocation buffer management.
+///
 /// Key design decisions:
-/// - **Direct lookup**: Efficient type → ext and extId → decoder lookups
-///   via HashMap.
+/// - **Direct lookup**: Efficient `Type` → `_Ext` and `extId` → `decoder` lookups
+///   via [HashMap].
+/// - **Amortized O(1) Polymorphism**: Custom types are cached upon first successful
+///   lookup through the fallback hierarchy, eliminating repeated O(N) searches.
 /// - **Unified group storage**: Groups register a single decoder-router entry,
 ///   minimizing dispatch overhead during decoding.
-/// - **Hot-path optimization**: Last lookup is cached to avoid rehashing
+/// - **Hot-path optimization**: The last lookup is cached to avoid rehashing
 ///   identical types in a row (common in list serialization).
+/// - **Zero-Allocation Groups**: Uses buffer rebinding for decoding and direct
+///   byte manipulation for encoding to avoid intermediate object allocations.
 /// - **ExtId validation**: Range -128..127 enforced at registration time.
-/// - **Private group constructor**: `MessagePackGroup` can only be created via
-///   `registerGroup`, preventing misuse.
 library;
 
 import 'dart:collection';
@@ -25,17 +31,19 @@ import 'core/unpacker.dart';
 
 /// Encodes a value of type [T] into bytes.
 ///
-/// The [ctx] parameter allows recursive packing of nested objects.
+/// The [ctx] parameter allows recursive packing of nested objects using the
+/// same [MessagePack] configuration.
 typedef Encoder<T> = Uint8List Function(T value, MessagePackCtx ctx);
 
 /// Decodes bytes into a value of type [T].
 ///
-/// The [ctx] parameter allows recursive unpacking of nested objects.
+/// The [ctx] parameter allows recursive unpacking of nested objects using the
+/// same [MessagePack] configuration.
 typedef Decoder<T> = T Function(Uint8List data, MessagePackCtx ctx);
 
 // Context interface — passed to user encoders/decoders
 
-/// Context for recursive MessagePack serialization / deserialization.
+/// Context for recursive MessagePack serialization and deserialization.
 ///
 /// Passed to custom [Encoder] and [Decoder] functions so they can
 /// pack/unpack nested objects using the same codec configuration.
@@ -44,18 +52,25 @@ abstract interface class MessagePackCtx {
   Uint8List pack(Object? value);
 
   /// Packs a sequence of [values] into a single buffer (no wrapping array).
+  ///
+  /// Useful for combining multiple objects into a single extension payload.
   Uint8List packAll(Iterable<Object?> values);
 
   /// Unpacks a single value of type [T] from [data].
   T unpack<T>(Uint8List data);
 
-  /// Unpacks all consecutive values from [data].
+  /// Unpacks all consecutive values from [data] into a list.
   List<T> unpackAll<T>(Uint8List data);
 }
+
 // Main class
 
 /// A high-performance MessagePack codec with custom extension support.
 ///
+/// Supports standard MessagePack types and provides a flexible API for
+/// registering custom extensions and grouped types.
+///
+/// Example:
 /// ```dart
 /// final mp = MessagePack(
 ///   extensions: (mp) {
@@ -73,8 +88,14 @@ abstract interface class MessagePackCtx {
 class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   /// Creates a [MessagePack] instance.
   ///
-  /// [extensions] — optional callback to register custom types.
-  /// [bufferSize] — initial buffer capacity for serialization (default 1024).
+  /// * [extensions]: Optional callback to register custom types during
+  ///   initialization.
+  /// * [bufferSize]: Initial buffer capacity for the internal [Packer].
+  ///   Defaults to 1024.
+  /// * [allowOverwrite]: If `true`, allows re-registering the same type or
+  ///   extension ID. If `false` (default), throws a [MessagePackConfigurationException]
+  ///   on duplicates. Enabling this will clear internal caches when a type is
+  ///   re-registered.
   MessagePack({
     void Function(MessagePack mp)? extensions,
     this.bufferSize = 1024,
@@ -86,6 +107,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   /// Default buffer capacity for the internal serializer.
   final int bufferSize;
 
+  /// Whether to allow overriding existing type/ID registrations.
   final bool _allowOverwrite;
 
   // ---- Internal state ----
@@ -106,6 +128,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   final List<_Ext> _sealedFallback = [];
 
   /// Cache for types that are not registered and don't match any fallback.
+  /// This prevents repeated O(N) searches for unsupported types.
   final Set<Type> _unhandledTypes = HashSet();
 
   // Codec converters — created once.
@@ -122,8 +145,10 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
 
   /// Registers a custom extension for type [T].
   ///
-  /// [extId] must be in the MessagePack range (-128..127) and unique.
+  /// [extId] must be in the MessagePack range (-128..127) and unique unless
+  /// [allowOverwrite] is enabled.
   ///
+  /// Example:
   /// ```dart
   /// mp.register<Color>(
   ///   extId: 10,
@@ -154,15 +179,14 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   /// Registers a group of related types under a single [extId].
   ///
   /// Each type in the group gets a unique `subId` (integer). The `subId` is
-  /// automatically prepended to the encoded payload using standard MessagePack
-  /// integer encoding. This ensures that the entire extension payload remains
-  /// a valid MessagePack stream, making it easy to decode in any language.
+  /// automatically prepended to the encoded payload.
   ///
-  /// This approach is ideal for:
-  /// - **Organized type families**: Related models that share a namespace.
-  /// - **ID conservation**: Reducing the number of extension IDs consumed
-  ///   when you have many small types.
+  /// Benefits:
+  /// - **ID conservation**: Uses only one extension ID for multiple types.
+  /// - **Performance**: Grouped types use the same high-performance routing
+  ///   logic as standalone extensions.
   ///
+  /// Example:
   /// ```dart
   /// mp.registerGroup(
   ///   extId: 2,
@@ -188,10 +212,10 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
     required void Function(MessagePackGroup group) builder,
   }) {
     _checkExtId(extId);
-    if (_decoders.containsKey(extId)) {
+    if (!_allowOverwrite && _decoders.containsKey(extId)) {
       throw MessagePackConfigurationException(
         'Extension id $extId is already registered.',
-        'Use a different extId.',
+        'Use a different extId or enable allowOverwrite.',
       );
     }
 
@@ -201,6 +225,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
     // Let the caller fill the group.
     builder(MessagePackGroup._(this, extId, subs));
 
+    // Optimized Unpacker instance for this group to avoid allocations.
     final groupUnpacker = Unpacker.withEmptyBuffer();
 
     // Register a single routing decoder for the whole group.
@@ -208,8 +233,6 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
       id: extId,
       subId: null,
       canHandle: (_) => false,
-      // Encoding is always done per-concrete-type (via _types), so
-      // this encode should never be reached through normal flow.
       encode: (_, _) => throw StateError('Group encode: use concrete type.'),
       decode: (data, ctx) {
         if (data.isEmpty) {
@@ -219,6 +242,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
           );
         }
 
+        // Zero-allocation: Rebind the existing Unpacker to the incoming data.
         groupUnpacker.rebind(data);
 
         final subId = groupUnpacker.unpackInt();
@@ -280,10 +304,18 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
 
   // Single-callback encoder for the Packer
 
+  /// Handles extension encoding for the internal [Packer].
+  ///
+  /// Implements multiple layers of caching:
+  /// 1. **Inline Cache**: Checks if the type is identical to the last one.
+  /// 2. **Fast Lookup**: O(1) search in the registered [_types] map.
+  /// 3. **Negative Cache**: Quickly skips types known to be unsupported.
+  /// 4. **Amortized Fallback**: Searches [_sealedFallback] once and caches the
+  ///    result in [_types] for future O(1) lookups.
   ExtEncoded? _encodeExt(Object value) {
     final type = value.runtimeType;
 
-    // Hot-path: same type as last call (very common in list serialization).
+    // Layer 1: Inline cache (identical type).
     if (identical(type, _lastType)) {
       final ext = _lastExt;
       if (ext != null) {
@@ -292,6 +324,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
       return null;
     }
 
+    // Layer 2: Fast lookup in HashMap.
     final ext = _types[type];
     _lastType = type;
     _lastExt = ext;
@@ -300,16 +333,15 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
       return (type: ext.id, data: _groupPayload(ext, value));
     }
 
+    // Layer 3: Negative cache.
     if (_unhandledTypes.contains(type)) {
       return null;
     }
 
-    // Fallback for sealed classes where runtimeType != registered Type
-    // (e.g. BigInt.parse returns _BigIntImpl, not BigInt)
+    // Layer 4: Polymorphic fallback search with memoization.
     for (final fallback in _sealedFallback) {
       if (fallback.canHandle(value)) {
-        // Cache the found fallback for this specific runtimeType to ensure
-        // future lookups are O(1).
+        // Cache for future O(1) lookups.
         _types[type] = fallback;
         _lastType = type;
         _lastExt = fallback;
@@ -318,44 +350,37 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
       }
     }
 
-    // Mark as unhandled to avoid searching again.
+    // Mark as unhandled to skip future searches.
     _unhandledTypes.add(type);
 
     return null;
   }
 
+  /// Prepares the payload for a group extension.
+  ///
+  /// Optimizes for `subId` values in the range 0..127 by using direct byte
+  /// manipulation instead of the [Packer] pipeline.
   Uint8List _groupPayload(_Ext ext, Object? value) {
     final payload = ext.encode(value, this);
 
-    // Non-group extensions — payload is returned as-is.
     final subId = ext.subId;
     if (subId == null) {
       return payload;
     }
 
-    // Fast path: subId is a positive fixint (0..127) and fits in 1 byte.
-    // This avoids Packer allocation and BinaryWriterPool interaction.
+    // Zero-allocation fast path for positive fixint subIds.
     if (subId >= 0 && subId <= 127) {
       final result = Uint8List(payload.length + 1);
       result[0] = subId;
       result.setAll(1, payload);
-
       return result;
     }
 
-    // Group extensions — prefix payload with subId (MessagePack integer).
-    // This makes the entire payload a valid MessagePack stream.
-    //
-    // We pre-allocate payload.length + 9 bytes to avoid buffer reallocation.
-    // 9 bytes is the absolute maximum size a MessagePack integer can take
-    // (1 byte for the format header + 8 bytes for a 64-bit integer payload).
+    // Fallback for larger subId values using the standard Packer.
     final packer = Packer(initialBufferSize: payload.length + 9);
     try {
       packer
         ..packInt(subId)
-        // We don't want to pack payload as binary, but append its raw bytes
-        // because the encoder already returned them as a packed MessagePack
-        // blob.
         ..appendRaw(payload);
       return packer.takeBytes();
     } finally {
@@ -365,6 +390,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
 
   // Single-callback decoder for the Unpacker
 
+  /// Handles extension decoding for the internal [Unpacker].
   Object? _decodeExt(int extType, Uint8List data) {
     final ext = _decoders[extType];
     if (ext == null) {
@@ -378,6 +404,8 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   }
 
   // Internal helpers
+
+  /// Internal type registration logic with duplicate handling and cache invalidation.
   void _putType(Type type, _Ext ext) {
     final oldExt = _types[type];
 
@@ -389,8 +417,8 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
         );
       }
 
+      // Cleanup old registration and clear all caches to ensure consistency.
       _sealedFallback.remove(oldExt);
-
       _unhandledTypes.clear();
       _lastType = null;
       _lastExt = null;
@@ -400,8 +428,9 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
     _sealedFallback.add(ext);
   }
 
+  /// Internal decoder registration logic.
   void _putDecoder(int extId, _Ext ext) {
-    if (_decoders.containsKey(extId)) {
+    if (!_allowOverwrite && _decoders.containsKey(extId)) {
       throw MessagePackConfigurationException(
         'Extension id $extId is already registered.',
         'Use a different extId.',
@@ -411,6 +440,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
     _decoders[extId] = ext;
   }
 
+  /// Validates that the [extId] is within the legal MessagePack range.
   void _checkExtId(int extId) {
     if (extId < -128 || extId > 127) {
       throw MessagePackConfigurationException(
@@ -420,6 +450,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
     }
   }
 
+  /// Validates that the type [T] can be registered as an extension.
   static void _checkType<T>() {
     if (T == dynamic || T == Object || T == _typeOf<Object?>()) {
       throw MessagePackConfigurationException(
@@ -467,6 +498,10 @@ class MessagePackGroup {
 
   /// Adds type [T] to this group with the given [subId].
   ///
+  /// [subId] must be unique within the group. For best performance, use values
+  /// between 0 and 127.
+  ///
+  /// Example:
   /// ```dart
   /// group.add<Circle>(
   ///   subId: 1,
@@ -505,6 +540,7 @@ class MessagePackGroup {
 
 // Codec adapters
 
+/// Internal converter for encoding objects to MessagePack bytes.
 class _MessagePackEncoder extends Converter<Object?, Uint8List> {
   _MessagePackEncoder(this._mp);
 
@@ -514,6 +550,7 @@ class _MessagePackEncoder extends Converter<Object?, Uint8List> {
   Uint8List convert(Object? input) => _mp.pack(input);
 }
 
+/// Internal converter for decoding MessagePack bytes to objects.
 class _MessagePackDecoder extends Converter<Uint8List, Object?> {
   _MessagePackDecoder(this._mp);
 
@@ -525,6 +562,7 @@ class _MessagePackDecoder extends Converter<Uint8List, Object?> {
 
 // Internal extension record
 
+/// Internal record representing a registered extension.
 class _Ext {
   _Ext({
     required this.id,
@@ -540,12 +578,12 @@ class _Ext {
   /// Sub-type id within a group, or `null` for standalone extensions.
   final int? subId;
 
-  /// Checks if this extension can handle the given value.
+  /// Checks if this extension can handle the given value via the `is` operator.
   final bool Function(Object) canHandle;
 
-  /// Encodes a value into bytes.
+  /// Encodes a value into bytes using a registered [Encoder].
   final Uint8List Function(Object?, MessagePackCtx) encode;
 
-  /// Decodes bytes into a value.
+  /// Decodes bytes into a value using a registered [Decoder].
   final Object? Function(Uint8List, MessagePackCtx) decode;
 }

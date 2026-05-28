@@ -6,9 +6,8 @@
 /// and [Unpacker] for more granular control.
 ///
 /// For most use cases, the [serialize] and [deserialize] functions are
-/// sufficient. For custom types, use [EncodeExt] and [DecodeExt] callbacks.
-///
-/// @docImport 'dart:collection';
+/// sufficient. For advanced scenarios requiring custom extension registration
+/// with high-performance caching (O(1) lookups), use the [MessagePack] class.
 library;
 
 import 'dart:typed_data' show Uint8List;
@@ -41,6 +40,9 @@ export 'src/message_pack.dart'
 /// encoder buffer (default is 1024 bytes).
 ///
 /// Throws a [MessagePackException] if serialization fails.
+///
+/// **Note:** For repetitive serialization of similar custom types, consider using
+/// the [MessagePack] class which implements advanced caching for faster lookups.
 Uint8List serialize(
   Object? value, {
   EncodeExt? encodeExt,

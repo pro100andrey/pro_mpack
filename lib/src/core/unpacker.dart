@@ -1,6 +1,7 @@
 /// MessagePack deserializer.
 ///
-/// Uses a [DecodeExt] function to handle MessagePack extension types.
+/// This library provides the [Unpacker] class, which is a low-level, high-performance
+/// MessagePack decoder.
 library;
 
 import 'dart:collection';
@@ -13,21 +14,45 @@ import 'exception.dart';
 
 /// Called by the [Unpacker] when it encounters a MessagePack ext type.
 ///
-/// [type] is the extension type code (-128..127).
-/// [data] is the raw binary payload.
+/// * [type]: The extension type code (-128..127).
+/// * [data]: The raw binary payload for the extension.
 ///
 /// Should return the decoded Dart object.
 typedef DecodeExt = Object? Function(int type, Uint8List data);
 
+/// Internal state for the [Unpacker] extension type.
 typedef _Internal = ({
   BinaryReader reader,
   DecodeExt? decodeExt,
   bool preserveMapOrder,
 });
 
+/// Shared empty buffer for default initialization.
 final _emptyBuffer = Uint8List(0);
 
+/// A high-performance MessagePack deserializer.
+///
+/// [Unpacker] is implemented as an `extension type` over a [BinaryReader] from
+/// `pro_binary`, providing a zero-overhead wrapper for decoding MessagePack
+/// data.
+///
+/// **Features:**
+/// - **Zero-Overhead**: No extra memory or object allocation for the wrapper.
+/// - **Efficient Decoding**: Stream-like parsing with minimal branching.
+/// - **Buffer Reuse**: Supports [rebind] to switch buffers without re-allocating
+///   the reader or unpacker instances.
+///
+/// Example:
+/// ```dart
+/// final unpacker = Unpacker(buffer: bytes);
+/// final data = unpacker.unpack();
+/// ```
 extension type Unpacker._(_Internal _i) {
+  /// Creates a new [Unpacker] for the given [buffer].
+  ///
+  /// * [decodeExt]: Optional callback for decoding custom extension types.
+  /// * [preserveMapOrder]: If `true`, uses a [LinkedHashMap] (default) to
+  ///   keep map keys in order. If `false`, may use a more performant [HashMap].
   Unpacker({
     required Uint8List buffer,
     DecodeExt? decodeExt,
@@ -38,6 +63,7 @@ extension type Unpacker._(_Internal _i) {
          preserveMapOrder: preserveMapOrder,
        );
 
+  /// Creates an [Unpacker] with an empty buffer, ready to be [rebind]-ed.
   Unpacker.withEmptyBuffer({
     DecodeExt? decodeExt,
     bool preserveMapOrder = false,
@@ -47,34 +73,49 @@ extension type Unpacker._(_Internal _i) {
          preserveMapOrder: preserveMapOrder,
        );
 
+  /// The underlying [BinaryReader].
   BinaryReader get _rd => _i.reader;
+
+  /// The custom extension decoder callback.
   DecodeExt? get _ext => _i.decodeExt;
+
+  /// Whether there are more bytes to read in the current buffer.
   bool get hasBytesAvailable => _rd.availableBytes > 0;
 
   /// Returns the bytes remaining in the buffer from the current position.
   Uint8List get remainingBytes => _rd.readRemainingBytes();
 
+  /// Unpacks the next value as an integer.
   @pragma('vm:prefer-inline')
   int unpackInt() => _unpackInt(_rd.readUint8());
 
+  /// Unpacks the next value as a double (float 32 or float 64).
   @pragma('vm:prefer-inline')
   double unpackDouble() => _unpackDouble(_rd.readUint8());
 
+  /// Unpacks the next value as a boolean.
   @pragma('vm:prefer-inline')
   bool unpackBool() => _unpackBool(_rd.readUint8());
 
+  /// Unpacks the next value as a [String].
   @pragma('vm:prefer-inline')
   String unpackString() => _unpackString(_rd.readUint8());
 
+  /// Unpacks the next value as binary data ([Uint8List]).
   @pragma('vm:prefer-inline')
   Uint8List unpackBinary() => _unpackBinary(_rd.readUint8());
 
+  /// Unpacks the next value as an array ([List]).
   @pragma('vm:prefer-inline')
   List<Object?> unpackArray() => _unpackArray(_rd.readUint8());
 
+  /// Unpacks the next value as a [Map].
   @pragma('vm:prefer-inline')
   Map<Object?, Object?> unpackMap() => _unpackMap(_rd.readUint8());
 
+  /// Unpacks the next value, ensuring it is `null`.
+  ///
+  /// Throws [MessagePackFormatException] if the next value is not `nil`.
   @pragma('vm:prefer-inline')
   Object? unpackNull() {
     final header = _rd.readUint8();
@@ -84,6 +125,12 @@ extension type Unpacker._(_Internal _i) {
     return null;
   }
 
+  /// Unpacks the next object from the buffer, automatically detecting its type.
+  ///
+  /// This is the primary method for decoding any MessagePack-encoded value.
+  ///
+  /// Throws [MessagePackFormatException] if the buffer is empty or contains
+  /// invalid MessagePack data.
   Object? unpack() {
     if (!hasBytesAvailable) {
       throw const MessagePackFormatException('No more data to unpack');
@@ -141,6 +188,7 @@ extension type Unpacker._(_Internal _i) {
     };
   }
 
+  /// Internal: Decodes an integer based on its header.
   @pragma('vm:prefer-inline')
   int _unpackInt(int header) => switch (header) {
     <= limitInt8 => header,
@@ -156,6 +204,7 @@ extension type Unpacker._(_Internal _i) {
     _ => _throwExpected('integer', header),
   };
 
+  /// Internal: Decodes a float or double based on its header.
   @pragma('vm:prefer-inline')
   double _unpackDouble(int header) => switch (header) {
     fFloat32 => _rd.readFloat32(),
@@ -163,6 +212,7 @@ extension type Unpacker._(_Internal _i) {
     _ => _throwExpected('float/double', header),
   };
 
+  /// Internal: Decodes a boolean based on its header.
   @pragma('vm:prefer-inline')
   bool _unpackBool(int header) => switch (header) {
     fTrue => true,
@@ -170,6 +220,7 @@ extension type Unpacker._(_Internal _i) {
     _ => _throwExpected('bool', header),
   };
 
+  /// Internal: Decodes a string based on its header.
   @pragma('vm:prefer-inline')
   String _unpackString(int header) {
     final len = switch (header) {
@@ -183,6 +234,7 @@ extension type Unpacker._(_Internal _i) {
     return _rd.readString(len);
   }
 
+  /// Internal: Decodes binary data based on its header.
   @pragma('vm:prefer-inline')
   Uint8List _unpackBinary(int header) {
     final len = switch (header) {
@@ -195,6 +247,7 @@ extension type Unpacker._(_Internal _i) {
     return _rd.readBytes(len);
   }
 
+  /// Internal: Decodes an array based on its header.
   @pragma('vm:prefer-inline')
   List<Object?> _unpackArray(int header) {
     final len = switch (header) {
@@ -216,6 +269,7 @@ extension type Unpacker._(_Internal _i) {
     return list;
   }
 
+  /// Internal: Decodes a map based on its header.
   @pragma('vm:prefer-inline')
   Map<Object?, Object?> _unpackMap(int header) {
     final len = switch (header) {
@@ -240,6 +294,7 @@ extension type Unpacker._(_Internal _i) {
     return map;
   }
 
+  /// Internal: Decodes a MessagePack extension based on its header.
   @pragma('vm:prefer-inline')
   Object? _unpackExtension(int header) {
     final len = switch (header) {
@@ -262,6 +317,8 @@ extension type Unpacker._(_Internal _i) {
     return _ext?.call(extType, _rd.readBytes(len));
   }
 
+  /// Internal: Helper to throw a [MessagePackFormatException] when an unexpected
+  /// byte is encountered.
   @pragma('vm:prefer-inline')
   Never _throwExpected(String expectedType, int actualHeader) {
     throw MessagePackFormatException(
@@ -270,6 +327,7 @@ extension type Unpacker._(_Internal _i) {
     );
   }
 
+  /// Internal: Decodes a MessagePack timestamp extension.
   @pragma('vm:prefer-inline')
   DateTime _unpackTimestamp(int length) {
     switch (length) {
@@ -307,6 +365,7 @@ extension type Unpacker._(_Internal _i) {
     }
   }
 
+  /// Unpacks all objects from the remaining buffer into a list.
   List<Object?> unpackAll() {
     final result = <Object?>[];
     while (hasBytesAvailable) {
@@ -316,6 +375,11 @@ extension type Unpacker._(_Internal _i) {
     return result;
   }
 
+  /// Rebinds the underlying [BinaryReader] to a new [buffer] without creating
+  /// a new [Unpacker] instance.
+  ///
+  /// This is an advanced optimization to minimize object allocations during
+  /// repetitive decoding tasks or nested decoding (e.g., in extension groups).
   void rebind(Uint8List buffer) {
     _rd.rebind(buffer);
   }

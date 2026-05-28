@@ -1,6 +1,7 @@
 /// MessagePack serializer.
 ///
-/// Uses an [EncodeExt] callback to handle custom extension types.
+/// This library provides the [Packer] class, which is a low-level, high-performance
+/// MessagePack encoder.
 library;
 
 import 'dart:typed_data';
@@ -43,16 +44,42 @@ class Float {
   String toString() => 'Float($value)';
 }
 
+/// Internal data structure for the [Packer] extension type.
 typedef _Data = ({BinaryWriter writer, EncodeExt? encodeExt});
 
+/// A high-performance MessagePack serializer.
+///
+/// [Packer] uses a [BinaryWriter] from `pro_binary` to encode Dart objects
+/// into the MessagePack binary format. It utilizes a pool-based buffer
+/// strategy via `BinaryWriterPool` to minimize memory allocations.
+///
+/// **Usage:**
+/// 1. Create a [Packer] (acquires a writer from the pool).
+/// 2. Use [pack] to encode one or more objects.
+/// 3. Call [takeBytes] to get the result and release the buffer back to the pool.
+///
+/// Example:
+/// ```dart
+/// final packer = Packer();
+/// packer.pack({'key': 'value', 'list': [1, 2, 3]});
+/// final bytes = packer.takeBytes();
+/// ```
 extension type Packer._(_Data _data) {
+  /// Creates a new [Packer] instance.
+  ///
+  /// * [encodeExt]: Optional callback for encoding custom extension types.
+  /// * [initialBufferSize]: The initial capacity of the internal buffer.
+  ///   The buffer will grow automatically if needed.
   Packer({EncodeExt? encodeExt, int initialBufferSize = 1024})
     : _data = (
         writer: BinaryWriterPool.acquire(initialBufferSize),
         encodeExt: encodeExt,
       );
 
+  /// The underlying [BinaryWriter].
   BinaryWriter get _wr => _data.writer;
+
+  /// The custom extension encoder callback.
   EncodeExt? get _ext => _data.encodeExt;
 
   /// Encodes [value] into MessagePack format and writes it to the buffer.
@@ -70,7 +97,10 @@ extension type Packer._(_Data _data) {
   /// - `DateTime` → timestamp extension (-1)
   /// - Custom types via [EncodeExt]
   ///
-  /// Throws a [MessagePackException] if the value type is not supported.
+  /// Throws a [MessagePackUnsupportedTypeException] if the value type is not
+  /// natively supported and no [EncodeExt] was provided or handled the type.
+  /// Throws a [MessagePackSizeException] if a string or collection exceeds
+  /// the 4GB MessagePack limit.
   void pack(Object? value) {
     switch (value) {
       case null:
@@ -116,11 +146,13 @@ extension type Packer._(_Data _data) {
     }
   }
 
+  /// Packs a `null` value.
   @pragma('vm:prefer-inline')
   void packNull() {
     _wr.writeUint8(fNil);
   }
 
+  /// Packs a boolean [value].
   @pragma('vm:prefer-inline')
   // The bool parameter is the value being serialized, not a flag.
   // ignore: avoid_positional_boolean_parameters
@@ -128,11 +160,13 @@ extension type Packer._(_Data _data) {
     _wr.writeUint8(value ? fTrue : fFalse);
   }
 
+  /// Packs an integer [value].
   @pragma('vm:prefer-inline')
   void packInt(int value) {
     value >= 0 ? _packPositiveInt(value) : _packNegativeInt(value);
   }
 
+  /// Internal: Packs a positive integer using the most compact format.
   @pragma('vm:prefer-inline')
   void _packPositiveInt(int value) {
     switch (value) {
@@ -157,6 +191,7 @@ extension type Packer._(_Data _data) {
     }
   }
 
+  /// Internal: Packs a negative integer using the most compact format.
   @pragma('vm:prefer-inline')
   void _packNegativeInt(int value) {
     switch (value) {
@@ -181,6 +216,7 @@ extension type Packer._(_Data _data) {
     }
   }
 
+  /// Packs a [Float] wrapper as a 32-bit float.
   @pragma('vm:prefer-inline')
   void packFloat(Float value) {
     _wr
@@ -188,6 +224,7 @@ extension type Packer._(_Data _data) {
       ..writeFloat32(value.value);
   }
 
+  /// Packs a double as a 64-bit float.
   @pragma('vm:prefer-inline')
   void packDouble(double value) {
     _wr
@@ -195,6 +232,9 @@ extension type Packer._(_Data _data) {
       ..writeFloat64(value);
   }
 
+  /// Packs a [String] [value] using UTF-8 encoding.
+  ///
+  /// Throws [MessagePackSizeException] if byte length exceeds [limitUint32].
   @pragma('vm:prefer-inline')
   void packString(String value) {
     final length = getUtf8Length(value);
@@ -224,6 +264,9 @@ extension type Packer._(_Data _data) {
     _wr.writeString(value);
   }
 
+  /// Packs binary [bytes].
+  ///
+  /// Throws [MessagePackSizeException] if length exceeds [limitUint32].
   @pragma('vm:prefer-inline')
   void packBinary(Uint8List bytes) {
     final length = bytes.length;
@@ -251,6 +294,9 @@ extension type Packer._(_Data _data) {
     _wr.writeBytes(bytes);
   }
 
+  /// Packs an [iterable] as a MessagePack array.
+  ///
+  /// Throws [MessagePackSizeException] if length exceeds [limitUint32].
   @pragma('vm:prefer-inline')
   void packArray(Iterable<dynamic> iterable) {
     final length = iterable.length;
@@ -285,6 +331,9 @@ extension type Packer._(_Data _data) {
     }
   }
 
+  /// Packs a [Map] as a MessagePack map.
+  ///
+  /// Throws [MessagePackSizeException] if number of entries exceeds [limitUint32].
   @pragma('vm:prefer-inline')
   void writeMap(Map<dynamic, dynamic> dictionary) {
     final length = dictionary.length;
@@ -315,10 +364,11 @@ extension type Packer._(_Data _data) {
 
   /// Writes a MessagePack ext format with the given [type] and [data].
   ///
-  /// [type] must be in the range -128..127.
+  /// * [type]: Extension type ID (-128..127).
+  /// * [data]: Raw binary payload for the extension.
   ///
-  /// Takes the already-resolved type ID and payload directly — no lookups,
-  /// no callbacks needed.
+  /// Throws [MessagePackConfigurationException] if [type] is out of range.
+  /// Throws [MessagePackSizeException] if [data] length exceeds [limitUint32].
   @pragma('vm:prefer-inline')
   void writeExt(int type, Uint8List data) {
     if (type < -128 || type > 127) {
@@ -366,6 +416,10 @@ extension type Packer._(_Data _data) {
       ..writeBytes(data);
   }
 
+  /// Packs a [DateTime] [value] using the standard MessagePack timestamp extension.
+  ///
+  /// Automatically chooses between 32-bit, 64-bit, and 96-bit timestamp formats
+  /// based on the value's range and precision.
   @pragma('vm:prefer-inline')
   void packTimestamp(DateTime value) {
     final micro = (value.isUtc ? value : value.toUtc()).microsecondsSinceEpoch;
@@ -412,6 +466,7 @@ extension type Packer._(_Data _data) {
     }
   }
 
+  /// Packs multiple [values] sequentially.
   void packAll(Iterable<dynamic> values) {
     for (final value in values) {
       pack(value);
@@ -420,15 +475,16 @@ extension type Packer._(_Data _data) {
 
   /// Appends [bytes] directly to the buffer without any encoding.
   ///
-  /// Use this only when [bytes] are already in MessagePack format.
+  /// Use this only when [bytes] are already in MessagePack format. This is
+  /// highly efficient for concatenating pre-encoded fragments.
   void appendRaw(Uint8List bytes) {
     _wr.writeBytes(bytes);
   }
 
-  /// Returns the serialized bytes and releases the internal buffer.
+  /// Returns the serialized bytes and releases the internal buffer back to the pool.
   ///
-  /// After calling this method, the serializer should not be used again
-  /// (use [dispose] if you need to abandon without taking bytes).
+  /// **Warning:** After calling this method, the [Packer] instance is disposed
+  /// and cannot be used again.
   Uint8List takeBytes() {
     try {
       return _wr.takeBytes();
@@ -437,7 +493,7 @@ extension type Packer._(_Data _data) {
     }
   }
 
-  /// Releases internal resources without returning any data.
+  /// Releases internal resources back to the pool without returning any data.
   ///
   /// Call this when you need to abandon the serializer (e.g., after an error).
   void dispose() {
