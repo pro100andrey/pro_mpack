@@ -195,6 +195,8 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
     // Let the caller fill the group.
     builder(MessagePackGroup._(this, extId, subs));
 
+    final groupUnpacker = Unpacker.withEmptyBuffer();
+
     // Register a single routing decoder for the whole group.
     _decoders[extId] = _Ext(
       id: extId,
@@ -210,9 +212,10 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
             'A group extension payload must contain at least a subId.',
           );
         }
-        // subId is encoded as a standard MessagePack integer.
-        final unpacker = Unpacker(buffer: data);
-        final subId = unpacker.unpackInt();
+
+        groupUnpacker.rebind(data);
+
+        final subId = groupUnpacker.unpackInt();
         final sub = subs[subId];
         if (sub == null) {
           throw MessagePackConfigurationException(
@@ -220,7 +223,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
             'Make sure all sub-types are registered via group.add().',
           );
         }
-        return sub.decode(unpacker.remainingBytes, ctx);
+        return sub.decode(groupUnpacker.remainingBytes, ctx);
       },
     );
   }

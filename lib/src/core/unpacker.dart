@@ -8,10 +8,8 @@ import 'dart:typed_data';
 
 import 'package:pro_binary/pro_binary.dart';
 
-import '../../pro_mpack.dart' show Packer;
 import 'constants.dart';
 import 'exception.dart';
-import 'packer.dart' show Packer;
 
 /// Called by the [Unpacker] when it encounters a MessagePack ext type.
 ///
@@ -27,6 +25,8 @@ typedef _Internal = ({
   bool preserveMapOrder,
 });
 
+final _emptyBuffer = Uint8List(0);
+
 extension type Unpacker._(_Internal _i) {
   Unpacker({
     required Uint8List buffer,
@@ -34,6 +34,15 @@ extension type Unpacker._(_Internal _i) {
     bool preserveMapOrder = false,
   }) : _i = (
          reader: BinaryReader(buffer),
+         decodeExt: decodeExt,
+         preserveMapOrder: preserveMapOrder,
+       );
+
+  Unpacker.withEmptyBuffer({
+    DecodeExt? decodeExt,
+    bool preserveMapOrder = false,
+  }) : _i = (
+         reader: BinaryReader(_emptyBuffer),
          decodeExt: decodeExt,
          preserveMapOrder: preserveMapOrder,
        );
@@ -303,13 +312,11 @@ extension type Unpacker._(_Internal _i) {
     while (hasBytesAvailable) {
       result.add(unpack());
     }
+
     return result;
   }
 
-  /// Releases resources associated with the unpacker.
-  ///
-  /// Currently a no-op, but provided for symmetry with [Packer.dispose].
-  void dispose() {
-    // No-op for now
+  void rebind(Uint8List buffer) {
+    _rd.rebind(buffer);
   }
 }

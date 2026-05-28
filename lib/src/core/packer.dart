@@ -107,6 +107,7 @@ extension type Packer._(_Data _data) {
           writeExt(ext.type, ext.data);
           return;
         }
+        
         throw MessagePackUnsupportedTypeException(
           value.runtimeType,
           "Don't know how to serialize type ${value.runtimeType}",

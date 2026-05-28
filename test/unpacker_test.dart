@@ -716,8 +716,4 @@ void main() {
       expect(result.length, 3);
     });
   });
-
-  test('Unpacker.dispose() can be called without error', () {
-    Unpacker(buffer: Uint8List(0)).dispose();
-  });
 }
