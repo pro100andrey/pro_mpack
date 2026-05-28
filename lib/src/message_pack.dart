@@ -78,12 +78,15 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   MessagePack({
     void Function(MessagePack mp)? extensions,
     this.bufferSize = 1024,
-  }) {
+    bool allowOverwrite = false,
+  }) : _allowOverwrite = allowOverwrite {
     extensions?.call(this);
   }
 
   /// Default buffer capacity for the internal serializer.
   final int bufferSize;
+
+  final bool _allowOverwrite;
 
   // ---- Internal state ----
 
@@ -330,6 +333,16 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
       return payload;
     }
 
+    // Fast path: subId is a positive fixint (0..127) and fits in 1 byte.
+    // This avoids Packer allocation and BinaryWriterPool interaction.
+    if (subId >= 0 && subId <= 127) {
+      final result = Uint8List(payload.length + 1);
+      result[0] = subId;
+      result.setAll(1, payload);
+
+      return result;
+    }
+
     // Group extensions — prefix payload with subId (MessagePack integer).
     // This makes the entire payload a valid MessagePack stream.
     //
@@ -360,18 +373,29 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
         'Register a decoder via MessagePack.register() or registerGroup().',
       );
     }
+
     return ext.decode(data, this);
   }
 
   // Internal helpers
-
   void _putType(Type type, _Ext ext) {
-    if (_types.containsKey(type)) {
-      throw MessagePackConfigurationException(
-        'Type $type is already registered.',
-        'Each type can only be registered once.',
-      );
+    final oldExt = _types[type];
+
+    if (oldExt != null) {
+      if (!_allowOverwrite) {
+        throw MessagePackConfigurationException(
+          'Type $type is already registered.',
+          'Each type can only be registered once.',
+        );
+      }
+
+      _sealedFallback.remove(oldExt);
+
+      _unhandledTypes.clear();
+      _lastType = null;
+      _lastExt = null;
     }
+
     _types[type] = ext;
     _sealedFallback.add(ext);
   }
@@ -383,6 +407,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
         'Use a different extId.',
       );
     }
+
     _decoders[extId] = ext;
   }
 
