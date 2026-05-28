@@ -103,7 +103,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   final List<_Ext> _sealedFallback = [];
 
   /// Cache for types that are not registered and don't match any fallback.
-  final Set<Type> _ = HashSet();
+  final Set<Type> _unhandledTypes = HashSet();
 
   // Codec converters — created once.
   late final _enc = _MessagePackEncoder(this);
