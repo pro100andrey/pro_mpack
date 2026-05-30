@@ -135,7 +135,7 @@ extension UserMessagePackGroup on MessagePackGroup {
       return ctx.packAll(fields);
     },
     decoder: (data, ctx) {
-      final fields = ctx.unpackAll<dynamic>(data);
+      final fields = ctx.unpackAll(data);
 
       final [
         int id,
@@ -175,7 +175,7 @@ extension AddressMessagePackGroup on MessagePackGroup {
       return ctx.packAll(fields);
     },
     decoder: (data, ctx) {
-      final fields = ctx.unpackAll<dynamic>(data);
+      final fields = ctx.unpackAll(data);
 
       final [
         String street,
@@ -196,7 +196,7 @@ extension ProductMessagePackGroup on MessagePackGroup {
       return ctx.packAll(fields);
     },
     decoder: (data, ctx) {
-      final fields = ctx.unpackAll<dynamic>(data);
+      final fields = ctx.unpackAll(data);
 
       final [
         String description,

@@ -20,6 +20,7 @@ void main() {
             extId: 1,
             encoder: (val, ctx) => ctx.pack(val.toString()),
             decoder: (data, ctx) => BigInt.parse(ctx.unpack<String>(data)),
+            polymorphic: true,
           );
         },
       );
@@ -36,6 +37,7 @@ void main() {
           extId: 1,
           encoder: (val, ctx) => ctx.pack(val.toString()),
           decoder: (data, ctx) => BigInt.parse(ctx.unpack<String>(data)),
+          polymorphic: true,
         );
 
       final big = BigInt.parse('987654321');
@@ -81,7 +83,7 @@ void main() {
       final mpack = MessagePack();
       final values = [1, 'two', 3.0];
       final bytes = mpack.packAll(values);
-      expect(mpack.unpackAll<Object?>(bytes), values);
+      expect(mpack.unpackAll(bytes), values);
     });
 
     test('subId >= 128 (varInt)', () {
@@ -472,10 +474,13 @@ class _FakeContext implements MessagePackCtx {
   const _FakeContext();
   @override
   Uint8List pack(Object? value) => throw UnimplementedError();
+
   @override
-  Uint8List packAll(Iterable<Object?> values) => throw UnimplementedError();
+  Uint8List packAll(Iterable<dynamic> values) => throw UnimplementedError();
+
   @override
-  T unpack<T>(Uint8List data) => throw UnimplementedError();
+  T unpack<T extends dynamic>(Uint8List data) => throw UnimplementedError();
+
   @override
-  List<T> unpackAll<T>(Uint8List data) => throw UnimplementedError();
+  List<dynamic> unpackAll(Uint8List data) => throw UnimplementedError();
 }

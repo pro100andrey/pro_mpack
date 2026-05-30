@@ -11,7 +11,6 @@
 /// with high-performance caching (O(1) lookups), use the [MessagePack] class.
 library;
 
-import 'dart:collection' show HashMap, LinkedHashMap;
 import 'dart:typed_data' show Uint8List;
 
 import 'src/core/exception.dart';
@@ -52,16 +51,16 @@ Uint8List serialize(
   EncodeExt? encodeExt,
   int initialBufferSize = 1024,
 }) {
-  final s = Packer(
+  final packer = Packer(
     encodeExt: encodeExt,
     initialBufferSize: initialBufferSize,
   );
 
   try {
-    s.pack(value);
-    return s.takeBytes();
+    packer.pack(value);
+    return packer.takeBytes();
   } finally {
-    s.dispose();
+    packer.dispose();
   }
 }
 
@@ -75,20 +74,20 @@ Uint8List serialize(
 /// Throws a [MessagePackException] if any value fails to serialize.
 @pragma('vm:prefer-inline')
 Uint8List serializeAll(
-  Iterable<Object?> values, {
+  Iterable<dynamic> values, {
   EncodeExt? encodeExt,
   int initialBufferSize = 1024,
 }) {
-  final s = Packer(
+  final packer = Packer(
     encodeExt: encodeExt,
     initialBufferSize: initialBufferSize,
   );
 
   try {
-    s.packAll(values);
-    return s.takeBytes();
+    packer.packAll(values);
+    return packer.takeBytes();
   } finally {
-    s.dispose();
+    packer.dispose();
   }
 }
 
@@ -97,24 +96,13 @@ Uint8List serializeAll(
 /// The function reads the first complete MessagePack object from the buffer.
 ///
 /// [decodeExt] can be provided to handle custom extension types.
-/// [preserveMapOrder] if true, uses a [LinkedHashMap] (default Dart Map) to
-/// maintain key order; if false, may use a more performant [HashMap].
 ///
 /// Throws a [MessagePackException] if the buffer contains invalid MessagePack
 /// data or if the buffer is exhausted prematurely.
 @pragma('vm:prefer-inline')
-Object? deserialize(
-  Uint8List buffer, {
-  DecodeExt? decodeExt,
-  bool preserveMapOrder = false,
-}) {
-  final d = Unpacker(
-    buffer: buffer,
-    decodeExt: decodeExt,
-    preserveMapOrder: preserveMapOrder,
-  );
-
-  final result = d.unpack();
+dynamic deserialize(Uint8List buffer, {DecodeExt? decodeExt}) {
+  final unpacker = Unpacker(buffer: buffer, decodeExt: decodeExt);
+  final result = unpacker.unpack();
 
   return result;
 }
@@ -124,27 +112,12 @@ Object? deserialize(
 /// Useful for decoding buffers created with [serializeAll] or streams of
 /// MessagePack data.
 ///
-/// [decodeExt] and [preserveMapOrder] behave the same as in [deserialize].
-///
 /// Throws a [MessagePackException] if any part of the buffer contains invalid
 /// MessagePack data.
 @pragma('vm:prefer-inline')
-List<Object?> deserializeAll(
-  Uint8List buffer, {
-  DecodeExt? decodeExt,
-  bool preserveMapOrder = false,
-}) {
-  final d = Unpacker(
-    buffer: buffer,
-    decodeExt: decodeExt,
-    preserveMapOrder: preserveMapOrder,
-  );
+List<dynamic> deserializeAll(Uint8List buffer, {DecodeExt? decodeExt}) {
+  final unpacker = Unpacker(buffer: buffer, decodeExt: decodeExt);
+  final result = unpacker.unpackAll();
 
-  final results = <Object?>[];
-  while (d.hasBytesAvailable) {
-    final value = d.unpack();
-    results.add(value);
-  }
-
-  return results;
+  return result;
 }

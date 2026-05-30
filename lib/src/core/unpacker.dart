@@ -5,7 +5,6 @@
 /// MessagePack decoder.
 library;
 
-import 'dart:collection';
 import 'dart:typed_data';
 
 import 'package:pro_binary/pro_binary.dart';
@@ -19,14 +18,10 @@ import 'exception.dart';
 /// * [data]: The raw binary payload for the extension.
 ///
 /// Should return the decoded Dart object.
-typedef DecodeExt = Object? Function(int type, Uint8List data);
+typedef DecodeExt = dynamic Function(int type, Uint8List data);
 
 /// Internal state for the [Unpacker] extension type.
-typedef _Internal = ({
-  BinaryReader reader,
-  DecodeExt? decodeExt,
-  bool preserveMapOrder,
-});
+typedef _Internal = ({BinaryReader reader, DecodeExt? decodeExt});
 
 /// Shared empty buffer for default initialization.
 final _emptyBuffer = Uint8List(0);
@@ -53,26 +48,17 @@ extension type Unpacker._(_Internal _i) {
   /// Creates a new [Unpacker] for the given [buffer].
   ///
   /// * [decodeExt]: Optional callback for decoding custom extension types.
-  /// * [preserveMapOrder]: If `true`, uses a [LinkedHashMap] (default) to
-  ///   keep map keys in order. If `false`, may use a more performant [HashMap].
   Unpacker({
     required Uint8List buffer,
     DecodeExt? decodeExt,
-    bool preserveMapOrder = false,
-  }) : _i = (
-         reader: BinaryReader(buffer),
-         decodeExt: decodeExt,
-         preserveMapOrder: preserveMapOrder,
-       );
+  }) : _i = (reader: BinaryReader(buffer), decodeExt: decodeExt);
 
   /// Creates an [Unpacker] with an empty buffer, ready to be [rebind]-ed.
   Unpacker.withEmptyBuffer({
     DecodeExt? decodeExt,
-    bool preserveMapOrder = false,
   }) : _i = (
          reader: BinaryReader(_emptyBuffer),
          decodeExt: decodeExt,
-         preserveMapOrder: preserveMapOrder,
        );
 
   /// The underlying [BinaryReader].
@@ -299,7 +285,7 @@ extension type Unpacker._(_Internal _i) {
 
   /// Internal: Decodes a map based on its header.
   @pragma('vm:prefer-inline')
-  Map<Object?, Object?> _unpackMap(int header) {
+  Map<dynamic, dynamic> _unpackMap(int header) {
     final len = switch (header) {
       >= fFixMapPrefix && <= fFixMapEnd => header & fFixCountMask,
       fMap16 => _rd.readUint16(),
@@ -311,12 +297,11 @@ extension type Unpacker._(_Internal _i) {
       return const {};
     }
 
-    final map = _i.preserveMapOrder
-        ? <Object?, Object?>{}
-        : HashMap<Object?, Object?>();
-
+    final map = <dynamic, dynamic>{};
     for (var i = 0; i < len; i++) {
-      map[unpack()] = unpack();
+      final k = unpack();
+      final v = unpack();
+      map[k] = v;
     }
 
     return map;
@@ -400,7 +385,5 @@ extension type Unpacker._(_Internal _i) {
   /// This is an advanced optimization to minimize object allocations during
   /// repetitive decoding tasks or nested decoding (e.g., in extension groups).
   @pragma('vm:prefer-inline')
-  void rebind(Uint8List buffer) {
-    _rd.rebind(buffer);
-  }
+  void rebind(Uint8List buffer) => _rd.rebind(buffer);
 }

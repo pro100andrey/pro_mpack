@@ -560,7 +560,7 @@ void main() {
     });
   });
 
-  group('preserveMapOrder', () {
+  group('Map orders', () {
     test('preserves map order when true', () {
       final buffer = Uint8List.fromList([
         0x83, // fixmap(3)
@@ -568,7 +568,7 @@ void main() {
         0xa1, 0x61, 2, // "a": 2
         0xa1, 0x6d, 3, // "m": 3
       ]);
-      final result = deserialize(buffer, preserveMapOrder: true)! as Map;
+      final result = deserialize(buffer)! as Map;
       expect(result.keys.toList(), ['z', 'a', 'm']);
     });
 
@@ -595,7 +595,7 @@ void main() {
         0xa1, 0x61, 2, // "a": 2
       ]);
 
-      final resultOrder = deserialize(buffer, preserveMapOrder: true)! as Map;
+      final resultOrder = deserialize(buffer)! as Map;
       expect(resultOrder['a'], 2);
       expect(resultOrder.length, 1);
 

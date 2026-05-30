@@ -49,19 +49,26 @@ typedef Decoder<T> = T Function(Uint8List data, MessagePackCtx ctx);
 /// Passed to custom [Encoder] and [Decoder] functions so they can
 /// pack/unpack nested objects using the same codec configuration.
 abstract interface class MessagePackCtx {
-  /// Packs [value] into a MessagePack-encoded [Uint8List].
-  Uint8List pack(Object? value);
+  /// Packs a single [value] into a MessagePack-encoded [Uint8List]
+  Uint8List pack(dynamic value);
 
   /// Packs a sequence of [values] into a single buffer (no wrapping array).
   ///
   /// Useful for combining multiple objects into a single extension payload.
-  Uint8List packAll(Iterable<Object?> values);
 
-  /// Unpacks a single value of type [T] from [data].
+  Uint8List packAll(Iterable<dynamic> values);
+
+  /// Unpacks a single value from [data].
+  ///
+  /// The generic type [T] allows casting the result. Defaults to `dynamic`.
   T unpack<T>(Uint8List data);
 
   /// Unpacks all consecutive values from [data] into a list.
-  List<T> unpackAll<T>(Uint8List data);
+  ///
+  /// Returns a `List<dynamic>` which is perfect for Dart 3 pattern matching.
+  /// If you need a strictly typed list (e.g., `List<int>`), use `.cast<T>()`
+  /// on the result
+  List<dynamic> unpackAll(Uint8List data);
 }
 
 // Main class
@@ -86,7 +93,7 @@ abstract interface class MessagePackCtx {
 /// final bytes = mp.pack(BigInt.from(42));
 /// final value = mp.unpack<BigInt>(bytes);
 /// ```
-class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
+class MessagePack extends Codec<dynamic, Uint8List> implements MessagePackCtx {
   /// Creates a [MessagePack] instance.
   ///
   /// * [extensions]: Optional callback to register custom types during
@@ -132,7 +139,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
 
   /// Cache for types that are not registered and don't match any fallback.
   /// This prevents repeated O(N) searches for unsupported types.
-  final Set<Type> _unhandledTypes = HashSet();
+  final Set<Type> _unhandledTypes = HashSet.identity();
 
   // Codec converters — created once.
   late final _enc = _MessagePackEncoder(this);
@@ -163,6 +170,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
     required int extId,
     required Encoder<T> encoder,
     required Decoder<T> decoder,
+    bool polymorphic = false,
   }) {
     _checkType<T>();
     _checkExtId(extId);
@@ -175,7 +183,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
       decode: (d, ctx) => decoder(d, ctx),
     );
 
-    _putType(T, ext);
+    _putType(T, ext, polymorphic: polymorphic);
     _putDecoder(extId, ext);
   }
 
@@ -245,10 +253,23 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
           );
         }
 
-        // Zero-allocation: Rebind the existing Unpacker to the incoming data.
+        final b0 = data[0];
+        // Fast path for subId 0..127 (positive fixint).
+        if (b0 <= 0x7f) {
+          final sub = subs[b0];
+          if (sub == null) {
+            throw MessagePackConfigurationException(
+              'Sub-type $b0 not found in group $extId.',
+              'Make sure all sub-types are registered via group.add().',
+            );
+          }
+          return sub.decode(Uint8List.sublistView(data, 1), ctx);
+        }
+
+        // Zero-allocation fallback: Rebind the existing Unpacker for large/negative subIds.
         groupUnpacker.rebind(data);
 
-        final subId = groupUnpacker.unpackInt();
+        final subId = groupUnpacker.unpackInt() ?? 0;
         final sub = subs[subId];
         if (sub == null) {
           throw MessagePackConfigurationException(
@@ -280,7 +301,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
 
   @override
   @pragma('vm:prefer-inline')
-  Uint8List packAll(Iterable<Object?> values) {
+  Uint8List packAll(Iterable<dynamic> values) {
     final s = Packer(
       encodeExt: _encodeExt,
       initialBufferSize: bufferSize,
@@ -295,16 +316,16 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
 
   @override
   @pragma('vm:prefer-inline')
-  T unpack<T>(Uint8List data) =>
+  T unpack<T extends Object?>(Uint8List data) =>
       Unpacker(buffer: data, decodeExt: _decodeExt).unpack() as T;
 
   @override
   @pragma('vm:prefer-inline')
-  List<T> unpackAll<T>(Uint8List data) {
+  List<dynamic> unpackAll(Uint8List data) {
     final de = Unpacker(buffer: data, decodeExt: _decodeExt);
-    final result = <T>[];
+    final result = <dynamic>[];
     while (de.hasBytesAvailable) {
-      result.add(de.unpack() as T);
+      result.add(de.unpack());
     }
 
     return result;
@@ -419,7 +440,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
 
   /// Internal type registration logic with duplicate handling and cache
   /// invalidation.
-  void _putType(Type type, _Ext ext) {
+  void _putType(Type type, _Ext ext, {required bool polymorphic}) {
     final oldExt = _types[type];
 
     if (oldExt != null) {
@@ -438,7 +459,9 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
     }
 
     _types[type] = ext;
-    _sealedFallback.add(ext);
+    if (polymorphic) {
+      _sealedFallback.add(ext);
+    }
   }
 
   /// Internal decoder registration logic.
@@ -528,6 +551,7 @@ class MessagePackGroup {
     required int subId,
     required Encoder<T> encoder,
     required Decoder<T> decoder,
+    bool polymorphic = false,
   }) {
     MessagePack._checkType<T>();
 
@@ -549,7 +573,7 @@ class MessagePackGroup {
     _subs[subId] = ext;
 
     // Register the concrete type in the flat cache for O(1) encoding.
-    _mp._putType(T, ext);
+    _mp._putType(T, ext, polymorphic: polymorphic);
   }
 }
 

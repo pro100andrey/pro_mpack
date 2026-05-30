@@ -5,6 +5,7 @@ import 'package:pro_mpack/pro_mpack.dart';
 
 import 'utils/custom.dart';
 import 'utils/data.dart';
+import 'utils/models.dart';
 
 class DeserializerBenchmark extends BenchmarkBase {
   DeserializerBenchmark() : super('mpack - deserialize');
@@ -19,7 +20,9 @@ class DeserializerBenchmark extends BenchmarkBase {
   @override
   void run() {
     for (var i = 0; i < 1000; i++) {
-      final _ = deserialize(bytes);
+      final result = deserialize(bytes);
+
+      final _ = result;
     }
   }
 
@@ -34,14 +37,23 @@ class DeserializerModelsBenchmark extends BenchmarkBase {
 
   @override
   void setup() {
-    bytes = mpack.encode([user, circle]);
+    bytes = mpack.encode([user, circle, rectangle, product]);
   }
 
   @override
   void run() {
     for (var i = 0; i < 1000; i++) {
-      final res = mpack.decode(bytes);
-      assert(res is List, '');
+      final [
+        User user,
+        Circle circle,
+        Rectangle rectangle,
+        Product product,
+      ] = mpack.decode(bytes) as List;
+
+      final _ = user;
+      final _ = circle;
+      final _ = rectangle;
+      final _ = product;
     }
   }
 

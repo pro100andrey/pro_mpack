@@ -10,7 +10,8 @@ final mpack = MessagePack(
       ..register(
         extId: 1,
         encoder: (value, ctx) => ctx.pack(value.toString()),
-        decoder: (data, ctx) => BigInt.parse(ctx.unpack<String>(data)),
+        decoder: (data, ctx) => BigInt.parse(ctx.unpack(data)),
+        polymorphic: true,
       )
       ..registerGroup(
         extId: 2,
@@ -21,7 +22,9 @@ final mpack = MessagePack(
       )
       ..registerGroup(
         extId: 3,
-        builder: (group) => group..circleCodec(),
+        builder: (group) => group
+          ..circleCodec()
+          ..rectangleCodec(),
       );
   },
 );
@@ -30,19 +33,16 @@ extension ShapeMessagePackGroup on MessagePackGroup {
   void circleCodec() => add(
     subId: 1,
     encoder: (value, ctx) => ctx.pack(value.radius),
-    decoder: (data, ctx) {
-      final radius = ctx.unpack<double>(data);
-      return Circle(radius);
-    },
+    decoder: (data, ctx) => Circle(ctx.unpack(data)),
   );
 
   void rectangleCodec() => add(
-    subId: 1,
-
-    encoder: (value, ctx) => ctx.packAll([value.width, value.height]),
+    subId: 2,
+    encoder: (value, ctx) => ctx.packAll(
+      [value.width, value.height],
+    ),
     decoder: (data, ctx) {
-      final values = ctx.unpackAll<dynamic>(data);
-      final [width as double, height as double] = values;
+      final [double width, double height] = ctx.unpackAll(data);
 
       return Rectangle(width, height);
     },
@@ -52,28 +52,13 @@ extension ShapeMessagePackGroup on MessagePackGroup {
 extension AddressMessagePackGroup on MessagePackGroup {
   void addressCodec() => add(
     subId: 1,
-    encoder: (address, ctx) {
-      final fields = [
-        address.street,
-        address.city,
-        address.zipCode,
-      ];
-      return ctx.packAll(fields);
-    },
+    encoder: (address, ctx) => ctx.packAll(
+      [address.street, address.city, address.zipCode],
+    ),
     decoder: (data, ctx) {
-      final values = ctx.unpackAll<Object?>(data);
+      final [String street, String city, int zipCode] = ctx.unpackAll(data);
 
-      final [
-        street as String,
-        city as String,
-        zipCode as int,
-      ] = values;
-
-      return Address(
-        street: street,
-        city: city,
-        zipCode: zipCode,
-      );
+      return Address(street: street, city: city, zipCode: zipCode);
     },
   );
 }
@@ -81,34 +66,33 @@ extension AddressMessagePackGroup on MessagePackGroup {
 extension UserMessagePackGroup on MessagePackGroup {
   void userCodec() => add<User>(
     subId: 2,
-    encoder: (user, ctx) {
-      final fields = [
-        user.id,
-        user.name,
-        user.age,
-        user.email,
-        user.created,
-        user.updated,
-        user.data,
-        user.addresses,
-        user.numbers,
-      ];
-      return ctx.packAll(fields);
-    },
+    encoder: (user, ctx) => ctx.packAll([
+      user.id,
+      user.name,
+      user.age,
+      user.email,
+      user.created,
+      user.updated,
+      user.data,
+      user.addresses,
+      user.numbers,
+      user.bigValue,
+    ]),
     decoder: (data, ctx) {
-      final fields = ctx.unpackAll<Object?>(data);
-
       final [
-        id as int,
-        name as String,
-        age as int,
-        email as String,
-        created as DateTime,
-        updated as DateTime,
-        d as Uint8List,
-        addresses as List<Object?>,
-        numbers as List<Object?>,
-      ] = fields;
+        int id,
+        String name,
+        int age,
+        String email,
+        DateTime created,
+        DateTime updated,
+        Uint8List d,
+        List<dynamic> addresses,
+        List<dynamic> numbers,
+        BigInt bigValue,
+      ] = ctx.unpackAll(
+        data,
+      );
 
       return User(
         id: id,
@@ -120,6 +104,7 @@ extension UserMessagePackGroup on MessagePackGroup {
         data: d,
         addresses: addresses.cast(),
         numbers: numbers.cast(),
+        bigValue: bigValue,
       );
     },
   );
@@ -128,28 +113,15 @@ extension UserMessagePackGroup on MessagePackGroup {
 extension ProductMessagePackGroup on MessagePackGroup {
   void productCodec() => add<Product>(
     subId: 3,
-    encoder: (product, ctx) {
-      final fields = [
-        product.title,
-        product.description,
-        product.price,
-      ];
-      return ctx.packAll(fields);
-    },
+    encoder: (product, ctx) => ctx.packAll(
+      [product.title, product.description, product.price],
+    ),
     decoder: (data, ctx) {
-      final fields = ctx.unpackAll<Object?>(data);
-
-      final [
-        title as String,
-        description as String,
-        price as BigInt,
-      ] = fields;
-
-      return Product(
-        title: title,
-        description: description,
-        price: price,
+      final [String title, String description, BigInt price] = ctx.unpackAll(
+        data,
       );
+
+      return Product(title: title, description: description, price: price);
     },
   );
 }

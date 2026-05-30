@@ -23,13 +23,13 @@ class SerializerBenchmark extends BenchmarkBase {
 }
 
 class SerializerModelsBenchmark extends BenchmarkBase {
-  SerializerModelsBenchmark() : super('mpack - serialize models');
+  const SerializerModelsBenchmark() : super('mpack - serialize models');
 
   @override
   void run() {
     for (var i = 0; i < 1000; i++) {
-      final encoded = mpack.encode(user);
-      if (encoded.isEmpty) {
+      final data = mpack.packAll([user, circle, rectangle]);
+      if (data.isEmpty) {
         throw Exception('Encoded data is empty');
       }
     }
@@ -41,5 +41,5 @@ class SerializerModelsBenchmark extends BenchmarkBase {
 
 void main() {
   const SerializerBenchmark().report();
-  SerializerModelsBenchmark().report();
+  const SerializerModelsBenchmark().report();
 }
