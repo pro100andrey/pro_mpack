@@ -433,6 +433,44 @@ void main() {
       ),
     );
   });
+
+  group('Unpacker Nullable Methods', () {
+    test('unpackInt returns null for nil byte', () {
+      final u = Unpacker(buffer: Uint8List.fromList([0xc0]));
+      expect(u.unpackInt(), isNull);
+    });
+
+    test('unpackDouble returns null for nil byte', () {
+      final u = Unpacker(buffer: Uint8List.fromList([0xc0]));
+      expect(u.unpackDouble(), isNull);
+    });
+
+    test('unpackBool returns null for nil byte', () {
+      final u = Unpacker(buffer: Uint8List.fromList([0xc0]));
+      expect(u.unpackBool(), isNull);
+    });
+
+    test('unpackString returns null for nil byte', () {
+      final u = Unpacker(buffer: Uint8List.fromList([0xc0]));
+      expect(u.unpackString(), isNull);
+    });
+
+    test('unpackBinary returns null for nil byte', () {
+      final u = Unpacker(buffer: Uint8List.fromList([0xc0]));
+      expect(u.unpackBinary(), isNull);
+    });
+
+    test('unpackArray returns null for nil byte', () {
+      final u = Unpacker(buffer: Uint8List.fromList([0xc0]));
+      expect(u.unpackArray(), isNull);
+    });
+
+    test('unpackMap returns null for nil byte', () {
+      final u = Unpacker(buffer: Uint8List.fromList([0xc0]));
+      expect(u.unpackMap(), isNull);
+    });
+  });
+
   // Extension format tests (ext 8, ext 16, ext 32)
   test('deserializes ext 8 format correctly', () {
     final buffer = Uint8List.fromList(

@@ -1,3 +1,4 @@
+/// @docImport 'src/message_pack.dart';
 /// A high-performance MessagePack serialization and deserialization library
 /// with full extension support.
 ///
@@ -10,6 +11,7 @@
 /// with high-performance caching (O(1) lookups), use the [MessagePack] class.
 library;
 
+import 'dart:collection' show HashMap, LinkedHashMap;
 import 'dart:typed_data' show Uint8List;
 
 import 'src/core/exception.dart';
@@ -41,8 +43,10 @@ export 'src/message_pack.dart'
 ///
 /// Throws a [MessagePackException] if serialization fails.
 ///
-/// **Note:** For repetitive serialization of similar custom types, consider using
-/// the [MessagePack] class which implements advanced caching for faster lookups.
+/// **Note:** For repetitive serialization of similar custom types, consider
+/// using the [MessagePack] class which implements advanced caching for faster
+/// lookups.
+@pragma('vm:prefer-inline')
 Uint8List serialize(
   Object? value, {
   EncodeExt? encodeExt,
@@ -69,6 +73,7 @@ Uint8List serialize(
 /// [encodeExt] and [initialBufferSize] behave the same as in [serialize].
 ///
 /// Throws a [MessagePackException] if any value fails to serialize.
+@pragma('vm:prefer-inline')
 Uint8List serializeAll(
   Iterable<Object?> values, {
   EncodeExt? encodeExt,
@@ -97,6 +102,7 @@ Uint8List serializeAll(
 ///
 /// Throws a [MessagePackException] if the buffer contains invalid MessagePack
 /// data or if the buffer is exhausted prematurely.
+@pragma('vm:prefer-inline')
 Object? deserialize(
   Uint8List buffer, {
   DecodeExt? decodeExt,
@@ -122,6 +128,7 @@ Object? deserialize(
 ///
 /// Throws a [MessagePackException] if any part of the buffer contains invalid
 /// MessagePack data.
+@pragma('vm:prefer-inline')
 List<Object?> deserializeAll(
   Uint8List buffer, {
   DecodeExt? decodeExt,

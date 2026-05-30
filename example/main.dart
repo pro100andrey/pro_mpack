@@ -3,24 +3,24 @@
 
 import 'package:pro_mpack/pro_mpack.dart';
 
-void main() {
-  final mp = MessagePack(
-    extensions: (config) {
-      config
-        // Register a custom codec for BigInt, which is not natively
-        // supported by MessagePack
-        ..registerBigInt()
-        // Group for user-related types
-        ..registerGroup(
-          extId: 2,
-          builder: (group) => group
-            ..userCodec()
-            ..addressCodec()
-            ..productCodec(),
-        );
-    },
-  );
+final mp = MessagePack(
+  extensions: (config) {
+    config
+      // Register a custom codec for BigInt, which is not natively
+      // supported by MessagePack
+      ..registerBigInt()
+      // Group for user-related types
+      ..registerGroup(
+        extId: 2,
+        builder: (group) => group
+          ..userCodec()
+          ..addressCodec()
+          ..productCodec(),
+      );
+  },
+);
 
+void main() {
   final user = User(
     id: 1,
     name: 'Alice',
@@ -29,7 +29,11 @@ void main() {
     created: DateTime.utc(2023),
     updated: DateTime.utc(2023, 1, 2),
     addresses: [
-      const Address(street: '123 Main St', city: 'New York', zipCode: 10001),
+      const Address(
+        street: '123 Main St',
+        city: 'New York',
+        zipCode: 10001,
+      ),
     ],
     products: [
       Product(
@@ -131,17 +135,17 @@ extension UserMessagePackGroup on MessagePackGroup {
       return ctx.packAll(fields);
     },
     decoder: (data, ctx) {
-      final fields = ctx.unpackAll<Object?>(data);
+      final fields = ctx.unpackAll<dynamic>(data);
 
       final [
-        id as int,
-        name as String,
-        age as int,
-        email as String,
-        created as DateTime,
-        updated as DateTime,
-        adds as List,
-        products as List,
+        int id,
+        String name,
+        int age,
+        String email,
+        DateTime created,
+        DateTime updated,
+        List<dynamic> adds,
+        List<dynamic> products,
       ] = fields;
 
       return User(
@@ -171,12 +175,12 @@ extension AddressMessagePackGroup on MessagePackGroup {
       return ctx.packAll(fields);
     },
     decoder: (data, ctx) {
-      final fields = ctx.unpackAll<Object?>(data);
+      final fields = ctx.unpackAll<dynamic>(data);
 
       final [
-        street as String,
-        city as String,
-        zipCode as int,
+        String street,
+        String city,
+        int zipCode,
       ] = fields;
 
       return Address(street: street, city: city, zipCode: zipCode);
@@ -192,12 +196,12 @@ extension ProductMessagePackGroup on MessagePackGroup {
       return ctx.packAll(fields);
     },
     decoder: (data, ctx) {
-      final fields = ctx.unpackAll<Object?>(data);
+      final fields = ctx.unpackAll<dynamic>(data);
 
       final [
-        description as String,
-        price as BigInt,
-        title as String,
+        String description,
+        BigInt price,
+        String title,
       ] = fields;
 
       return Product(description: description, price: price, title: title);

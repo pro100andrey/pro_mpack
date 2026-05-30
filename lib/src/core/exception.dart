@@ -50,7 +50,8 @@ sealed class MessagePackException implements Exception {
   }
 }
 
-/// Thrown when the binary data does not conform to the MessagePack specification.
+/// Thrown when the binary data does not conform to the MessagePack
+/// specification.
 ///
 /// Examples include encountering reserved bytes (0xc1), malformed timestamps,
 /// or reaching the end of the buffer unexpectedly.

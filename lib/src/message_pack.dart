@@ -6,10 +6,11 @@
 /// optimizations like inline caching and zero-allocation buffer management.
 ///
 /// Key design decisions:
-/// - **Direct lookup**: Efficient `Type` → `_Ext` and `extId` → `decoder` lookups
-///   via [HashMap].
-/// - **Amortized O(1) Polymorphism**: Custom types are cached upon first successful
-///   lookup through the fallback hierarchy, eliminating repeated O(N) searches.
+/// - **Direct lookup**: Efficient `Type` → `_Ext` and `extId` → `decoder`
+///   lookups via [HashMap].
+/// - **Amortized O(1) Polymorphism**: Custom types are cached upon first
+///   successful lookup through the fallback hierarchy, eliminating repeated
+///   O(N) searches.
 /// - **Unified group storage**: Groups register a single decoder-router entry,
 ///   minimizing dispatch overhead during decoding.
 /// - **Hot-path optimization**: The last lookup is cached to avoid rehashing
@@ -93,9 +94,9 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   /// * [bufferSize]: Initial buffer capacity for the internal [Packer].
   ///   Defaults to 1024.
   /// * [allowOverwrite]: If `true`, allows re-registering the same type or
-  ///   extension ID. If `false` (default), throws a [MessagePackConfigurationException]
-  ///   on duplicates. Enabling this will clear internal caches when a type is
-  ///   re-registered.
+  ///   extension ID. If `false` (default), throws a [
+  ///   MessagePackConfigurationException] on duplicates. Enabling this will
+  ///   clear internal caches when a type is re-registered.
   MessagePack({
     void Function(MessagePack mp)? extensions,
     this.bufferSize = 1024,
@@ -146,7 +147,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   /// Registers a custom extension for type [T].
   ///
   /// [extId] must be in the MessagePack range (-128..127) and unique unless
-  /// [allowOverwrite] is enabled.
+  /// `allowOverwrite` is enabled.
   ///
   /// Example:
   /// ```dart
@@ -261,6 +262,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   // Pack / Unpack — MessagePackCtx implementation
 
   @override
+  @pragma('vm:prefer-inline')
   Uint8List pack(Object? value) {
     final s = Packer(
       encodeExt: _encodeExt,
@@ -275,6 +277,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   }
 
   @override
+  @pragma('vm:prefer-inline')
   Uint8List packAll(Iterable<Object?> values) {
     final s = Packer(
       encodeExt: _encodeExt,
@@ -289,16 +292,19 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   }
 
   @override
+  @pragma('vm:prefer-inline')
   T unpack<T>(Uint8List data) =>
       Unpacker(buffer: data, decodeExt: _decodeExt).unpack() as T;
 
   @override
+  @pragma('vm:prefer-inline')
   List<T> unpackAll<T>(Uint8List data) {
     final de = Unpacker(buffer: data, decodeExt: _decodeExt);
     final result = <T>[];
     while (de.hasBytesAvailable) {
       result.add(de.unpack() as T);
     }
+
     return result;
   }
 
@@ -312,6 +318,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   /// 3. **Negative Cache**: Quickly skips types known to be unsupported.
   /// 4. **Amortized Fallback**: Searches [_sealedFallback] once and caches the
   ///    result in [_types] for future O(1) lookups.
+  @pragma('vm:prefer-inline')
   ExtEncoded? _encodeExt(Object value) {
     final type = value.runtimeType;
 
@@ -360,6 +367,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   ///
   /// Optimizes for `subId` values in the range 0..127 by using direct byte
   /// manipulation instead of the [Packer] pipeline.
+  @pragma('vm:prefer-inline')
   Uint8List _groupPayload(_Ext ext, Object? value) {
     final payload = ext.encode(value, this);
 
@@ -382,6 +390,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
       packer
         ..packInt(subId)
         ..appendRaw(payload);
+
       return packer.takeBytes();
     } finally {
       packer.dispose();
@@ -391,6 +400,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   // Single-callback decoder for the Unpacker
 
   /// Handles extension decoding for the internal [Unpacker].
+  @pragma('vm:prefer-inline')
   Object? _decodeExt(int extType, Uint8List data) {
     final ext = _decoders[extType];
     if (ext == null) {
@@ -405,7 +415,8 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
 
   // Internal helpers
 
-  /// Internal type registration logic with duplicate handling and cache invalidation.
+  /// Internal type registration logic with duplicate handling and cache
+  /// invalidation.
   void _putType(Type type, _Ext ext) {
     final oldExt = _types[type];
 
@@ -481,6 +492,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
     }
   }
 
+  @pragma('vm:prefer-inline')
   static Type _typeOf<T>() => T;
 }
 
@@ -547,6 +559,7 @@ class _MessagePackEncoder extends Converter<Object?, Uint8List> {
   final MessagePack _mp;
 
   @override
+  @pragma('vm:prefer-inline')
   Uint8List convert(Object? input) => _mp.pack(input);
 }
 
@@ -557,6 +570,7 @@ class _MessagePackDecoder extends Converter<Uint8List, Object?> {
   final MessagePack _mp;
 
   @override
+  @pragma('vm:prefer-inline')
   Object? convert(Uint8List input) => _mp.unpack(input);
 }
 

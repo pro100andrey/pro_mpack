@@ -1,6 +1,7 @@
 /// MessagePack deserializer.
 ///
-/// This library provides the [Unpacker] class, which is a low-level, high-performance
+/// This library provides the [Unpacker] class, which is a low-level,
+/// high-performance
 /// MessagePack decoder.
 library;
 
@@ -39,7 +40,8 @@ final _emptyBuffer = Uint8List(0);
 /// **Features:**
 /// - **Zero-Overhead**: No extra memory or object allocation for the wrapper.
 /// - **Efficient Decoding**: Stream-like parsing with minimal branching.
-/// - **Buffer Reuse**: Supports [rebind] to switch buffers without re-allocating
+/// - **Buffer Reuse**: Supports [rebind] to switch buffers without
+/// re-allocating
 ///   the reader or unpacker instances.
 ///
 /// Example:
@@ -74,56 +76,62 @@ extension type Unpacker._(_Internal _i) {
        );
 
   /// The underlying [BinaryReader].
+  @pragma('vm:prefer-inline')
   BinaryReader get _rd => _i.reader;
 
   /// The custom extension decoder callback.
+  @pragma('vm:prefer-inline')
   DecodeExt? get _ext => _i.decodeExt;
 
   /// Whether there are more bytes to read in the current buffer.
+  @pragma('vm:prefer-inline')
   bool get hasBytesAvailable => _rd.availableBytes > 0;
 
   /// Returns the bytes remaining in the buffer from the current position.
+  @pragma('vm:prefer-inline')
   Uint8List get remainingBytes => _rd.readRemainingBytes();
 
   /// Unpacks the next value as an integer.
+  ///
+  /// Returns `null` if the value is a MessagePack nil byte.
   @pragma('vm:prefer-inline')
-  int unpackInt() => _unpackInt(_rd.readUint8());
+  int? unpackInt() => _readNullable(_unpackInt);
 
   /// Unpacks the next value as a double (float 32 or float 64).
+  ///
+  /// Returns `null` if the value is a MessagePack nil byte.
   @pragma('vm:prefer-inline')
-  double unpackDouble() => _unpackDouble(_rd.readUint8());
+  double? unpackDouble() => _readNullable(_unpackDouble);
 
   /// Unpacks the next value as a boolean.
+  ///
+  /// Returns `null` if the value is a MessagePack nil byte.
   @pragma('vm:prefer-inline')
-  bool unpackBool() => _unpackBool(_rd.readUint8());
+  bool? unpackBool() => _readNullable(_unpackBool);
 
   /// Unpacks the next value as a [String].
+  ///
+  /// Returns `null` if the value is a MessagePack nil byte.
   @pragma('vm:prefer-inline')
-  String unpackString() => _unpackString(_rd.readUint8());
+  String? unpackString() => _readNullable(_unpackString);
 
   /// Unpacks the next value as binary data ([Uint8List]).
+  ///
+  /// Returns `null` if the value is a MessagePack nil byte.
   @pragma('vm:prefer-inline')
-  Uint8List unpackBinary() => _unpackBinary(_rd.readUint8());
+  Uint8List? unpackBinary() => _readNullable(_unpackBinary);
 
   /// Unpacks the next value as an array ([List]).
+  ///
+  /// Returns `null` if the value is a MessagePack nil byte.
   @pragma('vm:prefer-inline')
-  List<Object?> unpackArray() => _unpackArray(_rd.readUint8());
+  List<Object?>? unpackArray() => _readNullable(_unpackArray);
 
   /// Unpacks the next value as a [Map].
-  @pragma('vm:prefer-inline')
-  Map<Object?, Object?> unpackMap() => _unpackMap(_rd.readUint8());
-
-  /// Unpacks the next value, ensuring it is `null`.
   ///
-  /// Throws [MessagePackFormatException] if the next value is not `nil`.
+  /// Returns `null` if the value is a MessagePack nil byte.
   @pragma('vm:prefer-inline')
-  Object? unpackNull() {
-    final header = _rd.readUint8();
-    if (header != fNil) {
-      _throwExpected('null', header);
-    }
-    return null;
-  }
+  Map<Object?, Object?>? unpackMap() => _readNullable(_unpackMap);
 
   /// Unpacks the next object from the buffer, automatically detecting its type.
   ///
@@ -131,7 +139,8 @@ extension type Unpacker._(_Internal _i) {
   ///
   /// Throws [MessagePackFormatException] if the buffer is empty or contains
   /// invalid MessagePack data.
-  Object? unpack() {
+  @pragma('vm:prefer-inline')
+  dynamic unpack() {
     if (!hasBytesAvailable) {
       throw const MessagePackFormatException('No more data to unpack');
     }
@@ -186,6 +195,25 @@ extension type Unpacker._(_Internal _i) {
         'Unknown format byte: 0x${header.toRadixString(16).padLeft(2, '0')}',
       ),
     };
+  }
+
+  /// Unpacks all objects from the remaining buffer into a list.
+  @pragma('vm:prefer-inline')
+  List<dynamic> unpackAll() {
+    final result = <dynamic>[];
+    while (hasBytesAvailable) {
+      result.add(unpack());
+    }
+
+    return result;
+  }
+
+  /// Internal: Reads the next header byte. If it is `nil`, returns `null`.
+  /// Otherwise, calls the [parser] with the header byte.
+  @pragma('vm:prefer-inline')
+  T? _readNullable<T>(T Function(int) parser) {
+    final header = _rd.readUint8();
+    return header == fNil ? null : parser(header);
   }
 
   /// Internal: Decodes an integer based on its header.
@@ -317,7 +345,8 @@ extension type Unpacker._(_Internal _i) {
     return _ext?.call(extType, _rd.readBytes(len));
   }
 
-  /// Internal: Helper to throw a [MessagePackFormatException] when an unexpected
+  /// Internal: Helper to throw a [MessagePackFormatException] when an
+  /// unexpected
   /// byte is encountered.
   @pragma('vm:prefer-inline')
   Never _throwExpected(String expectedType, int actualHeader) {
@@ -365,21 +394,12 @@ extension type Unpacker._(_Internal _i) {
     }
   }
 
-  /// Unpacks all objects from the remaining buffer into a list.
-  List<Object?> unpackAll() {
-    final result = <Object?>[];
-    while (hasBytesAvailable) {
-      result.add(unpack());
-    }
-
-    return result;
-  }
-
   /// Rebinds the underlying [BinaryReader] to a new [buffer] without creating
   /// a new [Unpacker] instance.
   ///
   /// This is an advanced optimization to minimize object allocations during
   /// repetitive decoding tasks or nested decoding (e.g., in extension groups).
+  @pragma('vm:prefer-inline')
   void rebind(Uint8List buffer) {
     _rd.rebind(buffer);
   }

@@ -972,6 +972,92 @@ void main() {
       // Test passes if no exception is thrown
     });
   });
+
+  group('Packer Alias Methods', () {
+    test('packBool delegates correctly', () {
+      final p1 = Packer();
+      final p2 = Packer();
+      p1.pack(true);
+      p2.packBool(true);
+      expect(p2.takeBytes(), equals(p1.takeBytes()));
+    });
+
+    test('packInt delegates correctly', () {
+      final p1 = Packer();
+      final p2 = Packer();
+      p1.pack(42);
+      p2.packInt(42);
+      expect(p2.takeBytes(), equals(p1.takeBytes()));
+    });
+
+    test('packFloat delegates correctly', () {
+      final p1 = Packer();
+      final p2 = Packer();
+      p1.pack(Float(3.14));
+      p2.packFloat(Float(3.14));
+      expect(p2.takeBytes(), equals(p1.takeBytes()));
+    });
+
+    test('packDouble delegates correctly', () {
+      final p1 = Packer();
+      final p2 = Packer();
+      p1.pack(3.14);
+      p2.packDouble(3.14);
+      expect(p2.takeBytes(), equals(p1.takeBytes()));
+    });
+
+    test('packString delegates correctly', () {
+      final p1 = Packer();
+      final p2 = Packer();
+      p1.pack('hello');
+      p2.packString('hello');
+      expect(p2.takeBytes(), equals(p1.takeBytes()));
+    });
+
+    test('packBinary delegates correctly', () {
+      final p1 = Packer();
+      final p2 = Packer();
+      final data = Uint8List.fromList([1, 2, 3]);
+      p1.pack(data);
+      p2.packBinary(data);
+      expect(p2.takeBytes(), equals(p1.takeBytes()));
+    });
+
+    test('packArray delegates correctly', () {
+      final p1 = Packer();
+      final p2 = Packer();
+      final data = [1, 2, 3];
+      p1.pack(data);
+      p2.packArray(data);
+      expect(p2.takeBytes(), equals(p1.takeBytes()));
+    });
+
+    test('writeMap delegates correctly', () {
+      final p1 = Packer();
+      final p2 = Packer();
+      final data = {'a': 1};
+      p1.pack(data);
+      p2.writeMap(data);
+      expect(p2.takeBytes(), equals(p1.takeBytes()));
+    });
+
+    test('packTimestamp delegates correctly', () {
+      final p1 = Packer();
+      final p2 = Packer();
+      final date = DateTime.utc(2020);
+      p1.pack(date);
+      p2.packTimestamp(date);
+      expect(p2.takeBytes(), equals(p1.takeBytes()));
+    });
+
+    test('aliases handle null correctly', () {
+      final p = Packer()
+        ..packBool(null)
+        ..packInt(null)
+        ..packString(null);
+      expect(p.takeBytes(), equals([0xc0, 0xc0, 0xc0]));
+    });
+  });
 }
 
 class _MockInvalidTypeEncoder {

@@ -1,6 +1,7 @@
 /// MessagePack serializer.
 ///
-/// This library provides the [Packer] class, which is a low-level, high-performance
+/// This library provides the [Packer] class, which is a low-level,
+/// high-performance
 /// MessagePack encoder.
 library;
 
@@ -56,7 +57,8 @@ typedef _Data = ({BinaryWriter writer, EncodeExt? encodeExt});
 /// **Usage:**
 /// 1. Create a [Packer] (acquires a writer from the pool).
 /// 2. Use [pack] to encode one or more objects.
-/// 3. Call [takeBytes] to get the result and release the buffer back to the pool.
+/// 3. Call [takeBytes] to get the result and release the buffer back to the
+/// pool.
 ///
 /// Example:
 /// ```dart
@@ -77,10 +79,70 @@ extension type Packer._(_Data _data) {
       );
 
   /// The underlying [BinaryWriter].
+  @pragma('vm:prefer-inline')
   BinaryWriter get _wr => _data.writer;
 
   /// The custom extension encoder callback.
+  @pragma('vm:prefer-inline')
   EncodeExt? get _ext => _data.encodeExt;
+
+  /// Packs a boolean [value].
+  @pragma('vm:prefer-inline')
+  void packBool(bool? value) => value == null ? packNull() : _packBool(value);
+
+  /// Packs an integer [value].
+  @pragma('vm:prefer-inline')
+  void packInt(int? value) => value == null ? packNull() : _packInt(value);
+
+  /// Packs a [Float] wrapper as a 32-bit float.
+  @pragma('vm:prefer-inline')
+  void packFloat(Float? value) =>
+      value == null ? packNull() : _packFloat(value);
+
+  /// Packs a double as a 64-bit float.
+  @pragma('vm:prefer-inline')
+  void packDouble(double? value) =>
+      value == null ? packNull() : _packDouble(value);
+
+  /// Packs a [String] [value] using UTF-8 encoding.
+  ///
+  /// Throws [MessagePackSizeException] if byte length exceeds [limitUint32].
+  @pragma('vm:prefer-inline')
+  void packString(String? value) =>
+      value == null ? packNull() : _packString(value);
+
+  /// Packs binary [value].
+  ///
+  /// Throws [MessagePackSizeException] if length exceeds [limitUint32].
+  @pragma('vm:prefer-inline')
+  void packBinary(Uint8List? value) =>
+      value == null ? packNull() : _packBinary(value);
+
+  /// Packs an [value] as a MessagePack array.
+  ///
+  /// Throws [MessagePackSizeException] if length exceeds [limitUint32].
+  @pragma('vm:prefer-inline')
+  void packArray(Iterable<dynamic>? value) =>
+      value == null ? packNull() : _packArray(value);
+
+  /// Packs a [Map] as a MessagePack map.
+  ///
+  /// Throws [MessagePackSizeException] if number of entries exceeds
+  /// [limitUint32].
+  @pragma('vm:prefer-inline')
+  void writeMap(Map<dynamic, dynamic>? value) =>
+      value == null ? packNull() : _packMap(value);
+
+  /// Packs a [DateTime] [value] using the standard MessagePack timestamp
+  /// extension.
+  ///
+  /// Automatically chooses between 32-bit, 64-bit, and 96-bit timestamp formats
+  /// based on the value's range and precision.
+  @pragma('vm:prefer-inline')
+  void packTimestamp(DateTime? value) =>
+      value == null ? packNull() : _packTimestamp(value);
+
+  //Base
 
   /// Encodes [value] into MessagePack format and writes it to the buffer.
   ///
@@ -101,35 +163,36 @@ extension type Packer._(_Data _data) {
   /// natively supported and no [EncodeExt] was provided or handled the type.
   /// Throws a [MessagePackSizeException] if a string or collection exceeds
   /// the 4GB MessagePack limit.
+  @pragma('vm:prefer-inline')
   void pack(Object? value) {
     switch (value) {
       case null:
         packNull();
       case bool():
-        packBool(value);
+        _packBool(value);
       case int():
-        packInt(value);
+        _packInt(value);
       case Float():
-        packFloat(value);
+        _packFloat(value);
       case double():
-        packDouble(value);
+        _packDouble(value);
       case String():
-        packString(value);
+        _packString(value);
       case Uint8List():
-        packBinary(value);
+        _packBinary(value);
       case Iterable():
-        packArray(value);
+        _packArray(value);
       case ByteData():
-        packBinary(
+        _packBinary(
           value.buffer.asUint8List(
             value.offsetInBytes,
             value.lengthInBytes,
           ),
         );
       case Map():
-        writeMap(value);
+        _packMap(value);
       case DateTime():
-        packTimestamp(value);
+        _packTimestamp(value);
       case _:
         // Single callback — returns (type, data) or null.
         final ext = _ext?.call(value);
@@ -150,216 +213,6 @@ extension type Packer._(_Data _data) {
   @pragma('vm:prefer-inline')
   void packNull() {
     _wr.writeUint8(fNil);
-  }
-
-  /// Packs a boolean [value].
-  @pragma('vm:prefer-inline')
-  // The bool parameter is the value being serialized, not a flag.
-  // ignore: avoid_positional_boolean_parameters
-  void packBool(bool value) {
-    _wr.writeUint8(value ? fTrue : fFalse);
-  }
-
-  /// Packs an integer [value].
-  @pragma('vm:prefer-inline')
-  void packInt(int value) {
-    value >= 0 ? _packPositiveInt(value) : _packNegativeInt(value);
-  }
-
-  /// Internal: Packs a positive integer using the most compact format.
-  @pragma('vm:prefer-inline')
-  void _packPositiveInt(int value) {
-    switch (value) {
-      case <= limitInt8:
-        _wr.writeUint8(value);
-      case <= limitUint8:
-        _wr
-          ..writeUint8(fUint8)
-          ..writeUint8(value);
-      case <= limitUint16:
-        _wr
-          ..writeUint8(fUint16)
-          ..writeUint16(value);
-      case <= limitUint32:
-        _wr
-          ..writeUint8(fUint32)
-          ..writeUint32(value);
-      default:
-        _wr
-          ..writeUint8(fUint64)
-          ..writeUint64(value);
-    }
-  }
-
-  /// Internal: Packs a negative integer using the most compact format.
-  @pragma('vm:prefer-inline')
-  void _packNegativeInt(int value) {
-    switch (value) {
-      case >= limitNegFixInt:
-        _wr.writeInt8(value);
-      case >= limitNegInt8:
-        _wr
-          ..writeUint8(fInt8)
-          ..writeInt8(value);
-      case >= limitNegInt16:
-        _wr
-          ..writeUint8(fInt16)
-          ..writeInt16(value);
-      case >= limitNegInt32:
-        _wr
-          ..writeUint8(fInt32)
-          ..writeInt32(value);
-      default:
-        _wr
-          ..writeUint8(fInt64)
-          ..writeInt64(value);
-    }
-  }
-
-  /// Packs a [Float] wrapper as a 32-bit float.
-  @pragma('vm:prefer-inline')
-  void packFloat(Float value) {
-    _wr
-      ..writeUint8(fFloat32)
-      ..writeFloat32(value.value);
-  }
-
-  /// Packs a double as a 64-bit float.
-  @pragma('vm:prefer-inline')
-  void packDouble(double value) {
-    _wr
-      ..writeUint8(fFloat64)
-      ..writeFloat64(value);
-  }
-
-  /// Packs a [String] [value] using UTF-8 encoding.
-  ///
-  /// Throws [MessagePackSizeException] if byte length exceeds [limitUint32].
-  @pragma('vm:prefer-inline')
-  void packString(String value) {
-    final length = getUtf8Length(value);
-
-    switch (length) {
-      case <= 31:
-        _wr.writeUint8(fFixStrPrefix | length);
-      case <= limitUint8:
-        _wr
-          ..writeUint8(fStr8)
-          ..writeUint8(length);
-      case <= limitUint16:
-        _wr
-          ..writeUint8(fStr16)
-          ..writeUint16(length);
-      case <= limitUint32:
-        _wr
-          ..writeUint8(fStr32)
-          ..writeUint32(length);
-      default:
-        throw const MessagePackSizeException(
-          'String is too long to be serialized with MessagePack.',
-          'Ensure string byte length does not exceed 4,294,967,295 bytes.',
-        );
-    }
-
-    _wr.writeString(value);
-  }
-
-  /// Packs binary [bytes].
-  ///
-  /// Throws [MessagePackSizeException] if length exceeds [limitUint32].
-  @pragma('vm:prefer-inline')
-  void packBinary(Uint8List bytes) {
-    final length = bytes.length;
-
-    switch (length) {
-      case <= limitUint8:
-        _wr
-          ..writeUint8(fBin8)
-          ..writeUint8(length);
-      case <= limitUint16:
-        _wr
-          ..writeUint8(fBin16)
-          ..writeUint16(length);
-      case <= limitUint32:
-        _wr
-          ..writeUint8(fBin32)
-          ..writeUint32(length);
-      default:
-        throw const MessagePackSizeException(
-          'Binary data is too long to be serialized with MessagePack.',
-          'Ensure Uint8List size does not exceed 4,294,967,295 bytes.',
-        );
-    }
-
-    _wr.writeBytes(bytes);
-  }
-
-  /// Packs an [iterable] as a MessagePack array.
-  ///
-  /// Throws [MessagePackSizeException] if length exceeds [limitUint32].
-  @pragma('vm:prefer-inline')
-  void packArray(Iterable<dynamic> iterable) {
-    final length = iterable.length;
-
-    switch (length) {
-      case <= 15:
-        _wr.writeUint8(fFixArrayPrefix | length);
-      case <= limitUint16:
-        _wr
-          ..writeUint8(fArray16)
-          ..writeUint16(length);
-      case <= limitUint32:
-        _wr
-          ..writeUint8(fArray32)
-          ..writeUint32(length);
-      default:
-        throw const MessagePackSizeException(
-          'Array is too big to be serialized with MessagePack.',
-          'Ensure the Iterable has no more than 4,294,967,295 elements.',
-        );
-    }
-
-    // Optimize for List to avoid iterator overhead.
-    if (iterable is List) {
-      for (var i = 0; i < length; i++) {
-        pack(iterable[i]);
-      }
-    } else {
-      for (final item in iterable) {
-        pack(item);
-      }
-    }
-  }
-
-  /// Packs a [Map] as a MessagePack map.
-  ///
-  /// Throws [MessagePackSizeException] if number of entries exceeds [limitUint32].
-  @pragma('vm:prefer-inline')
-  void writeMap(Map<dynamic, dynamic> dictionary) {
-    final length = dictionary.length;
-
-    switch (length) {
-      case <= 15:
-        _wr.writeUint8(fFixMapPrefix | length);
-      case <= limitUint16:
-        _wr
-          ..writeUint8(fMap16)
-          ..writeUint16(length);
-      case <= limitUint32:
-        _wr
-          ..writeUint8(fMap32)
-          ..writeUint32(length);
-      default:
-        throw const MessagePackSizeException(
-          'Map is too big to be serialized with MessagePack.',
-          'Ensure the Map has no more than 4,294,967,295 key-value pairs.',
-        );
-    }
-
-    for (final entry in dictionary.entries) {
-      pack(entry.key);
-      pack(entry.value);
-    }
   }
 
   /// Writes a MessagePack ext format with the given [type] and [data].
@@ -416,12 +269,222 @@ extension type Packer._(_Data _data) {
       ..writeBytes(data);
   }
 
-  /// Packs a [DateTime] [value] using the standard MessagePack timestamp extension.
+  /// Packs a boolean [value].
+  @pragma('vm:prefer-inline')
+  void _packBool(bool value) {
+    _wr.writeUint8(value ? fTrue : fFalse);
+  }
+
+  /// Packs an integer [value].
+  @pragma('vm:prefer-inline')
+  void _packInt(int value) {
+    value >= 0 ? _packPositiveInt(value) : _packNegativeInt(value);
+  }
+
+  /// Internal: Packs a positive integer using the most compact format.
+  @pragma('vm:prefer-inline')
+  void _packPositiveInt(int value) {
+    switch (value) {
+      case <= limitInt8:
+        _wr.writeUint8(value);
+      case <= limitUint8:
+        _wr
+          ..writeUint8(fUint8)
+          ..writeUint8(value);
+      case <= limitUint16:
+        _wr
+          ..writeUint8(fUint16)
+          ..writeUint16(value);
+      case <= limitUint32:
+        _wr
+          ..writeUint8(fUint32)
+          ..writeUint32(value);
+      default:
+        _wr
+          ..writeUint8(fUint64)
+          ..writeUint64(value);
+    }
+  }
+
+  /// Internal: Packs a negative integer using the most compact format.
+  @pragma('vm:prefer-inline')
+  void _packNegativeInt(int value) {
+    switch (value) {
+      case >= limitNegFixInt:
+        _wr.writeInt8(value);
+      case >= limitNegInt8:
+        _wr
+          ..writeUint8(fInt8)
+          ..writeInt8(value);
+      case >= limitNegInt16:
+        _wr
+          ..writeUint8(fInt16)
+          ..writeInt16(value);
+      case >= limitNegInt32:
+        _wr
+          ..writeUint8(fInt32)
+          ..writeInt32(value);
+      default:
+        _wr
+          ..writeUint8(fInt64)
+          ..writeInt64(value);
+    }
+  }
+
+  /// Packs a [Float] wrapper as a 32-bit float.
+  @pragma('vm:prefer-inline')
+  void _packFloat(Float value) {
+    _wr
+      ..writeUint8(fFloat32)
+      ..writeFloat32(value.value);
+  }
+
+  /// Packs a double as a 64-bit float.
+  @pragma('vm:prefer-inline')
+  void _packDouble(double value) {
+    _wr
+      ..writeUint8(fFloat64)
+      ..writeFloat64(value);
+  }
+
+  /// Packs a [String] [value] using UTF-8 encoding.
+  ///
+  /// Throws [MessagePackSizeException] if byte length exceeds [limitUint32].
+  @pragma('vm:prefer-inline')
+  void _packString(String value) {
+    final length = getUtf8Length(value);
+
+    switch (length) {
+      case <= 31:
+        _wr.writeUint8(fFixStrPrefix | length);
+      case <= limitUint8:
+        _wr
+          ..writeUint8(fStr8)
+          ..writeUint8(length);
+      case <= limitUint16:
+        _wr
+          ..writeUint8(fStr16)
+          ..writeUint16(length);
+      case <= limitUint32:
+        _wr
+          ..writeUint8(fStr32)
+          ..writeUint32(length);
+      default:
+        throw const MessagePackSizeException(
+          'String is too long to be serialized with MessagePack.',
+          'Ensure string byte length does not exceed 4,294,967,295 bytes.',
+        );
+    }
+
+    _wr.writeString(value);
+  }
+
+  /// Packs binary [value].
+  ///
+  /// Throws [MessagePackSizeException] if length exceeds [limitUint32].
+  @pragma('vm:prefer-inline')
+  void _packBinary(Uint8List value) {
+    final length = value.length;
+
+    switch (length) {
+      case <= limitUint8:
+        _wr
+          ..writeUint8(fBin8)
+          ..writeUint8(length);
+      case <= limitUint16:
+        _wr
+          ..writeUint8(fBin16)
+          ..writeUint16(length);
+      case <= limitUint32:
+        _wr
+          ..writeUint8(fBin32)
+          ..writeUint32(length);
+      default:
+        throw const MessagePackSizeException(
+          'Binary data is too long to be serialized with MessagePack.',
+          'Ensure Uint8List size does not exceed 4,294,967,295 bytes.',
+        );
+    }
+
+    _wr.writeBytes(value);
+  }
+
+  /// Packs an [value] as a MessagePack array.
+  ///
+  /// Throws [MessagePackSizeException] if length exceeds [limitUint32].
+  @pragma('vm:prefer-inline')
+  void _packArray(Iterable<dynamic> value) {
+    final length = value.length;
+
+    switch (length) {
+      case <= 15:
+        _wr.writeUint8(fFixArrayPrefix | length);
+      case <= limitUint16:
+        _wr
+          ..writeUint8(fArray16)
+          ..writeUint16(length);
+      case <= limitUint32:
+        _wr
+          ..writeUint8(fArray32)
+          ..writeUint32(length);
+      default:
+        throw const MessagePackSizeException(
+          'Array is too big to be serialized with MessagePack.',
+          'Ensure the Iterable has no more than 4,294,967,295 elements.',
+        );
+    }
+
+    // Optimize for List to avoid iterator overhead.
+    if (value is List) {
+      for (var i = 0; i < length; i++) {
+        pack(value[i]);
+      }
+    } else {
+      for (final item in value) {
+        pack(item);
+      }
+    }
+  }
+
+  /// Packs a [Map] as a MessagePack map.
+  ///
+  /// Throws [MessagePackSizeException] if number of entries exceeds
+  /// [limitUint32].
+  @pragma('vm:prefer-inline')
+  void _packMap(Map<dynamic, dynamic> value) {
+    final length = value.length;
+
+    switch (length) {
+      case <= 15:
+        _wr.writeUint8(fFixMapPrefix | length);
+      case <= limitUint16:
+        _wr
+          ..writeUint8(fMap16)
+          ..writeUint16(length);
+      case <= limitUint32:
+        _wr
+          ..writeUint8(fMap32)
+          ..writeUint32(length);
+      default:
+        throw const MessagePackSizeException(
+          'Map is too big to be serialized with MessagePack.',
+          'Ensure the Map has no more than 4,294,967,295 key-value pairs.',
+        );
+    }
+
+    for (final entry in value.entries) {
+      pack(entry.key);
+      pack(entry.value);
+    }
+  }
+
+  /// Packs a [DateTime] [value] using the standard MessagePack timestamp
+  /// extension.
   ///
   /// Automatically chooses between 32-bit, 64-bit, and 96-bit timestamp formats
   /// based on the value's range and precision.
   @pragma('vm:prefer-inline')
-  void packTimestamp(DateTime value) {
+  void _packTimestamp(DateTime value) {
     final micro = (value.isUtc ? value : value.toUtc()).microsecondsSinceEpoch;
     const million = 1_000_000;
     final sec = (micro / million).floor();
@@ -467,6 +530,7 @@ extension type Packer._(_Data _data) {
   }
 
   /// Packs multiple [values] sequentially.
+  @pragma('vm:prefer-inline')
   void packAll(Iterable<dynamic> values) {
     for (final value in values) {
       pack(value);
@@ -477,14 +541,17 @@ extension type Packer._(_Data _data) {
   ///
   /// Use this only when [bytes] are already in MessagePack format. This is
   /// highly efficient for concatenating pre-encoded fragments.
+  @pragma('vm:prefer-inline')
   void appendRaw(Uint8List bytes) {
     _wr.writeBytes(bytes);
   }
 
-  /// Returns the serialized bytes and releases the internal buffer back to the pool.
+  /// Returns the serialized bytes and releases the internal buffer back to the
+  /// pool.
   ///
   /// **Warning:** After calling this method, the [Packer] instance is disposed
   /// and cannot be used again.
+  @pragma('vm:prefer-inline')
   Uint8List takeBytes() {
     try {
       return _wr.takeBytes();
@@ -496,6 +563,7 @@ extension type Packer._(_Data _data) {
   /// Releases internal resources back to the pool without returning any data.
   ///
   /// Call this when you need to abandon the serializer (e.g., after an error).
+  @pragma('vm:prefer-inline')
   void dispose() {
     BinaryWriterPool.release(_wr);
   }
