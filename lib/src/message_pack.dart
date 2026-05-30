@@ -116,9 +116,11 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   /// Flat type → _Ext cache. O(1) for every registered type.
   final Map<Type, _Ext> _types = HashMap();
 
-  /// ExtId → decoder. For groups this stores a single _Ext with a routing
-  /// decoder, so decoding never needs type checks.
-  final Map<int, _Ext> _decoders = HashMap();
+  /// ExtId → decoder table. Range -128..127 mapped to 0..255.
+  final _decoders = List<_Ext?>.filled(256, null);
+
+  @pragma('vm:prefer-inline')
+  static int _extIndex(int extId) => extId + 128;
 
   /// Cached last lookup result to avoid rehashing identical types in a row.
   Type? _lastType;
@@ -213,7 +215,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
     required void Function(MessagePackGroup group) builder,
   }) {
     _checkExtId(extId);
-    if (!_allowOverwrite && _decoders.containsKey(extId)) {
+    if (!_allowOverwrite && _decoders[_extIndex(extId)] != null) {
       throw MessagePackConfigurationException(
         'Extension id $extId is already registered.',
         'Use a different extId or enable allowOverwrite.',
@@ -230,7 +232,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
     final groupUnpacker = Unpacker.withEmptyBuffer();
 
     // Register a single routing decoder for the whole group.
-    _decoders[extId] = _Ext(
+    _decoders[_extIndex(extId)] = _Ext(
       id: extId,
       subId: null,
       canHandle: (_) => false,
@@ -402,7 +404,7 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
   /// Handles extension decoding for the internal [Unpacker].
   @pragma('vm:prefer-inline')
   Object? _decodeExt(int extType, Uint8List data) {
-    final ext = _decoders[extType];
+    final ext = _decoders[_extIndex(extType)];
     if (ext == null) {
       throw MessagePackConfigurationException(
         'No decoder for extension type $extType.',
@@ -441,14 +443,15 @@ class MessagePack extends Codec<Object?, Uint8List> implements MessagePackCtx {
 
   /// Internal decoder registration logic.
   void _putDecoder(int extId, _Ext ext) {
-    if (!_allowOverwrite && _decoders.containsKey(extId)) {
+    final i = _extIndex(extId);
+    if (!_allowOverwrite && _decoders[i] != null) {
       throw MessagePackConfigurationException(
         'Extension id $extId is already registered.',
         'Use a different extId.',
       );
     }
 
-    _decoders[extId] = ext;
+    _decoders[i] = ext;
   }
 
   /// Validates that the [extId] is within the legal MessagePack range.
