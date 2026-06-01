@@ -12,17 +12,12 @@ import 'package:pro_binary/pro_binary.dart';
 import 'constants.dart';
 import 'exception.dart';
 
-/// Result of encoding a custom type.
-///
-/// Contains the extension type ID and the encoded payload bytes.
-typedef ExtEncoded = ({int type, Uint8List data});
-
 /// Called by the [Packer] when it encounters a type it cannot natively
 /// handle.
 ///
-/// Returns the extension type ID and encoded payload, or `null` if the
-/// object is not a registered custom type.
-typedef EncodeExt = ExtEncoded? Function(Object value);
+/// Writes the extension data directly to the provided [packer] and returns
+/// `true` if handled, or `false` if the object is not a registered custom type.
+typedef EncodeExt = bool Function(Object value, Packer packer);
 
 /// A wrapper for explicitly serializing a [double] as a 32-bit float.
 ///
@@ -46,7 +41,7 @@ class Float {
 }
 
 /// Internal data structure for the [Packer] extension type.
-typedef _Data = ({BinaryWriter writer, EncodeExt? encodeExt});
+typedef _Data = ({BinaryWriter writer, Object? encodeExt});
 
 /// A high-performance MessagePack serializer.
 ///
@@ -84,7 +79,7 @@ extension type Packer._(_Data _data) {
 
   /// The custom extension encoder callback.
   @pragma('vm:prefer-inline')
-  EncodeExt? get _ext => _data.encodeExt;
+  EncodeExt? get _ext => _data.encodeExt as EncodeExt?;
 
   /// Packs a boolean [value].
   @pragma('vm:prefer-inline')
@@ -194,10 +189,8 @@ extension type Packer._(_Data _data) {
       case DateTime():
         _packTimestamp(value);
       case _:
-        // Single callback — returns (type, data) or null.
-        final ext = _ext?.call(value);
-        if (ext != null) {
-          writeExt(ext.type, ext.data);
+        // Callback writes directly to this Packer if it handles the type.
+        if (_ext != null && (_ext!).call(value, this)) {
           return;
         }
 
@@ -213,6 +206,38 @@ extension type Packer._(_Data _data) {
   @pragma('vm:prefer-inline')
   void packNull() {
     _wr.writeUint8(fNil);
+  }
+
+  /// Packs a custom extension payload.
+  ///
+  /// The [builder] receives a temporary [Packer] to write the payload.
+  /// This ensures zero-allocation routing since the payload length is
+  /// calculated and the appropriate extension header is written before the
+  /// payload, followed directly by copying the temporary buffer.
+  @pragma('vm:prefer-inline')
+  void packExtension(int type, void Function(Packer) builder) {
+    if (type < -128 || type > 127) {
+      throw const MessagePackConfigurationException(
+        'Type must be in the range of -128 to 127.',
+        'Ensure your custom extension ID is between -128 and 127.',
+      );
+    }
+
+    final tempWriter = BinaryWriterPool.acquire(128);
+    final tempPacker = Packer._((writer: tempWriter, encodeExt: _ext));
+
+    try {
+      builder(tempPacker);
+
+      final payloadLength = tempWriter.bytesWritten;
+      _writeExtHeader(type, payloadLength);
+
+      if (payloadLength > 0) {
+        _wr.writeBytes(tempWriter.toBytes());
+      }
+    } finally {
+      tempPacker.dispose(); // releases tempWriter to pool
+    }
   }
 
   /// Writes a MessagePack ext format with the given [type] and [data].
@@ -231,8 +256,12 @@ extension type Packer._(_Data _data) {
       );
     }
 
-    final length = data.length;
+    _writeExtHeader(type, data.length);
+    _wr.writeBytes(data);
+  }
 
+  @pragma('vm:prefer-inline')
+  void _writeExtHeader(int type, int length) {
     switch (length) {
       case 1:
         _wr.writeUint8(fFixExt1);
@@ -264,9 +293,7 @@ extension type Packer._(_Data _data) {
         );
     }
 
-    _wr
-      ..writeInt8(type)
-      ..writeBytes(data);
+    _wr.writeInt8(type);
   }
 
   /// Packs a boolean [value].
@@ -526,14 +553,6 @@ extension type Packer._(_Data _data) {
         ..writeInt8(extTypeTimestamp)
         ..writeUint32(nano)
         ..writeInt64(sec);
-    }
-  }
-
-  /// Packs multiple [values] sequentially.
-  @pragma('vm:prefer-inline')
-  void packAll(Iterable<dynamic> values) {
-    for (final value in values) {
-      pack(value);
     }
   }
 

@@ -15,13 +15,14 @@ import 'exception.dart';
 /// Called by the [Unpacker] when it encounters a MessagePack ext type.
 ///
 /// * [type]: The extension type code (-128..127).
-/// * [data]: The raw binary payload for the extension.
+/// * [length]: The byte length of the extension payload.
+/// * [unpacker]: The unpacker to read the payload from.
 ///
 /// Should return the decoded Dart object.
-typedef DecodeExt = dynamic Function(int type, Uint8List data);
+typedef DecodeExt = dynamic Function(int type, int length, Unpacker unpacker);
 
 /// Internal state for the [Unpacker] extension type.
-typedef _Internal = ({BinaryReader reader, DecodeExt? decodeExt});
+typedef _Internal = ({BinaryReader reader, dynamic decodeExt});
 
 /// Shared empty buffer for default initialization.
 final _emptyBuffer = Uint8List(0);
@@ -65,13 +66,21 @@ extension type Unpacker._(_Internal _i) {
   @pragma('vm:prefer-inline')
   BinaryReader get _rd => _i.reader;
 
+  /// The current read position in the underlying buffer.
+  @pragma('vm:prefer-inline')
+  int get offset => _rd.offset;
+
   /// The custom extension decoder callback.
   @pragma('vm:prefer-inline')
-  DecodeExt? get _ext => _i.decodeExt;
+  DecodeExt? get _ext => _i.decodeExt as DecodeExt?;
 
   /// Whether there are more bytes to read in the current buffer.
   @pragma('vm:prefer-inline')
   bool get hasBytesAvailable => _rd.availableBytes > 0;
+
+  /// Reads [length] bytes directly from the underlying buffer.
+  @pragma('vm:prefer-inline')
+  Uint8List readBytes(int length) => _rd.readBytes(length);
 
   /// Returns the bytes remaining in the buffer from the current position.
   @pragma('vm:prefer-inline')
@@ -118,6 +127,15 @@ extension type Unpacker._(_Internal _i) {
   /// Returns `null` if the value is a MessagePack nil byte.
   @pragma('vm:prefer-inline')
   Map<Object?, Object?>? unpackMap() => _readNullable(_unpackMap);
+
+  /// Unpacks the next value as a custom extension type (DateTime).
+  ///
+  /// Returns `null` if the value is a MessagePack nil byte.
+  @pragma('vm:prefer-inline')
+  DateTime? unpackTimestamp() => _readNullable(_unpackExtension) as DateTime?;
+
+  @pragma('vm:prefer-inline')
+  T? unpackExtension<T>() => _readNullable(_unpackExtension) as T?;
 
   /// Unpacks the next object from the buffer, automatically detecting its type.
   ///
@@ -181,17 +199,6 @@ extension type Unpacker._(_Internal _i) {
         'Unknown format byte: 0x${header.toRadixString(16).padLeft(2, '0')}',
       ),
     };
-  }
-
-  /// Unpacks all objects from the remaining buffer into a list.
-  @pragma('vm:prefer-inline')
-  List<dynamic> unpackAll() {
-    final result = <dynamic>[];
-    while (hasBytesAvailable) {
-      result.add(unpack());
-    }
-
-    return result;
   }
 
   /// Internal: Reads the next header byte. If it is `nil`, returns `null`.
@@ -307,9 +314,9 @@ extension type Unpacker._(_Internal _i) {
     return map;
   }
 
-  /// Internal: Decodes a MessagePack extension based on its header.
+  /// Internal: Decodes an extension payload of a given length.
   @pragma('vm:prefer-inline')
-  Object? _unpackExtension(int header) {
+  dynamic _unpackExtension(int header) {
     final len = switch (header) {
       fFixExt1 => 1,
       fFixExt2 => 2,
@@ -327,7 +334,14 @@ extension type Unpacker._(_Internal _i) {
       return _unpackTimestamp(len);
     }
 
-    return _ext?.call(extType, _rd.readBytes(len));
+    final expectedEnd = _rd.offset + len;
+    final result = _ext?.call(extType, len, this);
+
+    if (_rd.offset != expectedEnd) {
+      _rd.seek(expectedEnd);
+    }
+
+    return result;
   }
 
   /// Internal: Helper to throw a [MessagePackFormatException] when an

@@ -1,54 +1,119 @@
 // Disable warnings for print statements in this example
 // ignore_for_file: avoid_print
 
+import 'dart:typed_data';
+
 import 'package:pro_mpack/pro_mpack.dart';
 
 final mp = MessagePack(
   extensions: (config) {
     config
-      // Register a custom codec for BigInt, which is not natively
-      // supported by MessagePack
-      ..registerBigInt()
-      // Group for user-related types
+      // Register a custom extension for BigInt
+      ..register(
+        extId: 1,
+        // BigInt.parse() returns a _BigIntImpl, we need polymorphic
+        // registration
+        polymorphic: true,
+        encoder: (i, p) => p.packBinary(bigIntToBytes(i)),
+        decoder: (u, l) => bytesToBigInt(u.unpackBinary()!),
+      )
+      // Register a group for our custom classes: User, Address
       ..registerGroup(
         extId: 2,
         builder: (group) => group
-          ..userCodec()
-          ..addressCodec()
-          ..productCodec(),
+          ..add(
+            subId: 1,
+            encoder: (u, p) => p
+              ..packInt(u.id)
+              ..packString(u.name)
+              ..packInt(u.age)
+              ..packString(u.email)
+              ..packTimestamp(u.created)
+              ..packTimestamp(u.updated)
+              ..packArray(u.addresses)
+              ..packArray(u.products),
+            decoder: (u, l) => User(
+              id: u.unpackInt()!,
+              name: u.unpackString()!,
+              age: u.unpackInt()!,
+              email: u.unpackString()!,
+              created: u.unpackTimestamp()!,
+              updated: u.unpackTimestamp()!,
+              addresses: u.unpackArray()!.cast<Address>(),
+              products: u.unpackArray()!.cast<Product>(),
+            ),
+          )
+          ..add(
+            subId: 2,
+            encoder: (addr, p) => p
+              ..packString(addr.street)
+              ..packString(addr.city)
+              ..packInt(addr.zipCode),
+            decoder: (u, l) => Address(
+              street: u.unpackString()!,
+              city: u.unpackString()!,
+              zipCode: u.unpackInt()!,
+            ),
+          ),
+      )
+      // Register a group for Product, which contains BigInt as a field
+      ..registerGroup(
+        extId: 3,
+        builder: (group) => group
+          ..add(
+            subId: 1,
+            encoder: (product, p) => p
+              ..packString(product.title)
+              ..packString(product.description)
+              ..pack(product.price),
+
+            decoder: (u, l) => Product(
+              title: u.unpackString()!,
+              description: u.unpackString()!,
+              price: u.unpackExtension<BigInt>()!, // or u.unpack()
+            ),
+          ),
       );
   },
 );
 
 void main() {
-  final user = User(
-    id: 1,
-    name: 'Alice',
-    age: 30,
-    email: 'alice@example.com',
-    created: DateTime.utc(2023),
-    updated: DateTime.utc(2023, 1, 2),
-    addresses: [
-      const Address(
-        street: '123 Main St',
-        city: 'New York',
-        zipCode: 10001,
-      ),
-    ],
-    products: [
-      Product(
-        title: 'Gadget',
-        description: 'A useful gadget',
-        price: BigInt.parse('123456789012345678901234567890'),
-      ),
-    ],
-  );
+  final users = generateUsers(10).toList();
+  final bytes = mp.pack(users);
+  print('Serialized ${bytes.length} bytes');
 
-  final userBytes = mp.pack(user);
-  final decodedUser = mp.unpack<User>(userBytes);
+  final decodedUsers = mp.unpack<List<dynamic>>(bytes).cast<User>();
 
-  print('Decoded User: $decodedUser');
-  print('Bytes: ${userBytes.length}');
+  print('Original users: ${users.length}');
+  print('Decoded users: ${decodedUsers.length}');
+}
+
+Iterable<User> generateUsers(int count) sync* {
+  for (var i = 0; i < count; i++) {
+    yield User(
+      id: i + 1,
+      name: 'User $i',
+      age: 20 + (i % 30),
+      email: 'user$i@example.com',
+      created: DateTime.utc(2020 + (i % 4)),
+      updated: DateTime.utc(2021 + (i % 3)),
+      addresses: [
+        const Address(
+          street: '123 Main St',
+          city: 'City',
+          zipCode: 10000,
+        ),
+      ],
+      products: [
+        Product(
+          title: 'Product $i',
+          description: 'Description for product $i',
+          price:
+              BigInt.parse('10000000000000${i}00000000000000') + BigInt.from(i),
+        ),
+      ],
+    );
+  }
 }
 
 class Address {
@@ -109,102 +174,19 @@ class Product {
       'Product(title: $title, description: $description, price: $price)';
 }
 
-extension BigIntMessagePack on MessagePack {
-  void registerBigInt() => register<BigInt>(
-    extId: 1,
-    encoder: (value, ctx) => ctx.pack(value.toString()),
-    decoder: (data, ctx) => BigInt.parse(ctx.unpack<String>(data)),
+Uint8List bigIntToBytes(BigInt number) {
+  if (number == .zero) {
+    return .fromList([0]);
+  }
+
+  final byteLength = (number.bitLength + 7) >> 3;
+  return .fromList(
+    .generate(
+      byteLength,
+      (i) => ((number >> ((byteLength - 1 - i) * 8)) & .from(255)).toInt(),
+    ),
   );
 }
 
-extension UserMessagePackGroup on MessagePackGroup {
-  void userCodec() => add<User>(
-    subId: 100,
-    encoder: (user, ctx) {
-      final fields = [
-        user.id,
-        user.name,
-        user.age,
-        user.email,
-        user.created,
-        user.updated,
-        user.addresses,
-        user.products,
-      ];
-
-      return ctx.packAll(fields);
-    },
-    decoder: (data, ctx) {
-      final fields = ctx.unpackAll(data);
-
-      final [
-        int id,
-        String name,
-        int age,
-        String email,
-        DateTime created,
-        DateTime updated,
-        List<dynamic> adds,
-        List<dynamic> products,
-      ] = fields;
-
-      return User(
-        id: id,
-        name: name,
-        age: age,
-        email: email,
-        created: created,
-        updated: updated,
-        addresses: adds.cast(),
-        products: products.cast(),
-      );
-    },
-  );
-}
-
-extension AddressMessagePackGroup on MessagePackGroup {
-  void addressCodec() => add<Address>(
-    subId: 200,
-    encoder: (addr, ctx) {
-      final fields = [
-        addr.street,
-        addr.city,
-        addr.zipCode,
-      ];
-
-      return ctx.packAll(fields);
-    },
-    decoder: (data, ctx) {
-      final fields = ctx.unpackAll(data);
-
-      final [
-        String street,
-        String city,
-        int zipCode,
-      ] = fields;
-
-      return Address(street: street, city: city, zipCode: zipCode);
-    },
-  );
-}
-
-extension ProductMessagePackGroup on MessagePackGroup {
-  void productCodec() => add<Product>(
-    subId: 300,
-    encoder: (product, ctx) {
-      final fields = [product.description, product.price, product.title];
-      return ctx.packAll(fields);
-    },
-    decoder: (data, ctx) {
-      final fields = ctx.unpackAll(data);
-
-      final [
-        String description,
-        BigInt price,
-        String title,
-      ] = fields;
-
-      return Product(description: description, price: price, title: title);
-    },
-  );
-}
+BigInt bytesToBigInt(Uint8List bytes) =>
+    bytes.fold(.zero, (result, byte) => (result << 8) | .from(byte));

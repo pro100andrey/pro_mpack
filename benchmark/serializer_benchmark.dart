@@ -28,7 +28,7 @@ class SerializerModelsBenchmark extends BenchmarkBase {
   @override
   void run() {
     for (var i = 0; i < 1000; i++) {
-      final data = mpack.packAll([user, circle, rectangle]);
+      final data = mpack.pack([user, circle, rectangle]);
       if (data.isEmpty) {
         throw Exception('Encoded data is empty');
       }

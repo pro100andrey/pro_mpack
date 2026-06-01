@@ -32,44 +32,15 @@ import 'core/unpacker.dart';
 
 /// Encodes a value of type [T] into bytes.
 ///
-/// The [ctx] parameter allows recursive packing of nested objects using the
-/// same [MessagePack] configuration.
-typedef Encoder<T> = Uint8List Function(T value, MessagePackCtx ctx);
+/// The [packer] parameter allows writing custom encoding logic directly
+/// into the stream.
+typedef Encoder<T> = void Function(T value, Packer packer);
 
 /// Decodes bytes into a value of type [T].
 ///
-/// The [ctx] parameter allows recursive unpacking of nested objects using the
-/// same [MessagePack] configuration.
-typedef Decoder<T> = T Function(Uint8List data, MessagePackCtx ctx);
-
-// Context interface — passed to user encoders/decoders
-
-/// Context for recursive MessagePack serialization and deserialization.
-///
-/// Passed to custom [Encoder] and [Decoder] functions so they can
-/// pack/unpack nested objects using the same codec configuration.
-abstract interface class MessagePackCtx {
-  /// Packs a single [value] into a MessagePack-encoded [Uint8List]
-  Uint8List pack(dynamic value);
-
-  /// Packs a sequence of [values] into a single buffer (no wrapping array).
-  ///
-  /// Useful for combining multiple objects into a single extension payload.
-
-  Uint8List packAll(Iterable<dynamic> values);
-
-  /// Unpacks a single value from [data].
-  ///
-  /// The generic type [T] allows casting the result. Defaults to `dynamic`.
-  T unpack<T>(Uint8List data);
-
-  /// Unpacks all consecutive values from [data] into a list.
-  ///
-  /// Returns a `List<dynamic>` which is perfect for Dart 3 pattern matching.
-  /// If you need a strictly typed list (e.g., `List<int>`), use `.cast<T>()`
-  /// on the result
-  List<dynamic> unpackAll(Uint8List data);
-}
+/// The [unpacker] parameter allows reading custom decoding logic directly
+/// from the stream. [length] is the byte length of the extension payload.
+typedef Decoder<T> = T Function(Unpacker unpacker, int length);
 
 // Main class
 
@@ -84,8 +55,8 @@ abstract interface class MessagePackCtx {
 ///   extensions: (mp) {
 ///     mp.register<BigInt>(
 ///       extId: 1,
-///       encoder: (v, ctx) => ctx.pack(v.toString()),
-///       decoder: (d, ctx) => BigInt.parse(ctx.unpack<String>(d)),
+///       encoder: (v, p) => p.packString(v.toString()),
+///       decoder: (u, l) => BigInt.parse(u.unpackString()!),
 ///     );
 ///   },
 /// );
@@ -93,7 +64,7 @@ abstract interface class MessagePackCtx {
 /// final bytes = mp.pack(BigInt.from(42));
 /// final value = mp.unpack<BigInt>(bytes);
 /// ```
-class MessagePack extends Codec<dynamic, Uint8List> implements MessagePackCtx {
+class MessagePack extends Codec<dynamic, Uint8List> {
   /// Creates a [MessagePack] instance.
   ///
   /// * [extensions]: Optional callback to register custom types during
@@ -179,8 +150,8 @@ class MessagePack extends Codec<dynamic, Uint8List> implements MessagePackCtx {
       id: extId,
       subId: null,
       canHandle: (v) => v is T,
-      encode: (v, ctx) => encoder(v as T, ctx),
-      decode: (d, ctx) => decoder(d, ctx),
+      encode: (v, p) => encoder(v as T, p),
+      decode: (u, l) => decoder(u, l),
     );
 
     _putType(T, ext, polymorphic: polymorphic);
@@ -204,14 +175,15 @@ class MessagePack extends Codec<dynamic, Uint8List> implements MessagePackCtx {
   ///   builder: (g) {
   ///     g.add<Circle>(
   ///       subId: 1,
-  ///       encoder: (c, ctx) => ctx.pack(c.radius),
-  ///       decoder: (d, ctx) => Circle(ctx.unpack<double>(d)),
+  ///       encoder: (c, p) => p.packDouble(c.radius),
+  ///       decoder: (u, l) => Circle(u.unpackDouble()!),
   ///     );
   ///     g.add<Rectangle>(
   ///       subId: 2,
-  ///       encoder: (r, ctx) => ctx.packAll([r.w, r.h]),
-  ///       decoder: (d, ctx) {
-  ///         final [w as double, h as double] = ctx.unpackAll(d);
+  ///       encoder: (r, p) => p.packAll([r.w, r.h]),
+  ///       decoder: (u, l) {
+  ///         final w = u.unpackDouble()!;
+  ///         final h = u.unpackDouble()!;
   ///         return Rectangle(w, h);
   ///       },
   ///     );
@@ -236,55 +208,39 @@ class MessagePack extends Codec<dynamic, Uint8List> implements MessagePackCtx {
     // Let the caller fill the group.
     builder(MessagePackGroup._(this, extId, subs));
 
-    // Optimized Unpacker instance for this group to avoid allocations.
-    final groupUnpacker = Unpacker.withEmptyBuffer();
-
     // Register a single routing decoder for the whole group.
     _decoders[_extIndex(extId)] = _Ext(
       id: extId,
       subId: null,
       canHandle: (_) => false,
       encode: (_, _) => throw StateError('Group encode: use concrete type.'),
-      decode: (data, ctx) {
-        if (data.isEmpty) {
+      decode: (unpacker, length) {
+        if (length == 0) {
           throw const MessagePackFormatException(
             'Empty group payload.',
             'A group extension payload must contain at least a subId.',
           );
         }
 
-        final b0 = data[0];
-        // Fast path for subId 0..127 (positive fixint).
-        if (b0 <= 0x7f) {
-          final sub = subs[b0];
-          if (sub == null) {
-            throw MessagePackConfigurationException(
-              'Sub-type $b0 not found in group $extId.',
-              'Make sure all sub-types are registered via group.add().',
-            );
-          }
-          return sub.decode(Uint8List.sublistView(data, 1), ctx);
-        }
-
-        // Zero-allocation fallback: Rebind the existing Unpacker for large/negative subIds.
-        groupUnpacker.rebind(data);
-
-        final subId = groupUnpacker.unpackInt() ?? 0;
+        final startOffset = unpacker.offset;
+        final subId = unpacker.unpackInt() ?? 0;
         final sub = subs[subId];
+
         if (sub == null) {
           throw MessagePackConfigurationException(
             'Sub-type $subId not found in group $extId.',
             'Make sure all sub-types are registered via group.add().',
           );
         }
-        return sub.decode(groupUnpacker.remainingBytes, ctx);
+
+        final readBytes = unpacker.offset - startOffset;
+        return sub.decode(unpacker, length - readBytes);
       },
     );
   }
 
-  // Pack / Unpack — MessagePackCtx implementation
+  // Pack / Unpack
 
-  @override
   @pragma('vm:prefer-inline')
   Uint8List pack(Object? value) {
     final s = Packer(
@@ -299,37 +255,9 @@ class MessagePack extends Codec<dynamic, Uint8List> implements MessagePackCtx {
     }
   }
 
-  @override
   @pragma('vm:prefer-inline')
-  Uint8List packAll(Iterable<dynamic> values) {
-    final s = Packer(
-      encodeExt: _encodeExt,
-      initialBufferSize: bufferSize,
-    );
-    try {
-      s.packAll(values);
-      return s.takeBytes();
-    } finally {
-      s.dispose();
-    }
-  }
-
-  @override
-  @pragma('vm:prefer-inline')
-  T unpack<T extends Object?>(Uint8List data) =>
+  T unpack<T>(Uint8List data) =>
       Unpacker(buffer: data, decodeExt: _decodeExt).unpack() as T;
-
-  @override
-  @pragma('vm:prefer-inline')
-  List<dynamic> unpackAll(Uint8List data) {
-    final de = Unpacker(buffer: data, decodeExt: _decodeExt);
-    final result = <dynamic>[];
-    while (de.hasBytesAvailable) {
-      result.add(de.unpack());
-    }
-
-    return result;
-  }
 
   // Single-callback encoder for the Packer
 
@@ -342,16 +270,17 @@ class MessagePack extends Codec<dynamic, Uint8List> implements MessagePackCtx {
   /// 4. **Amortized Fallback**: Searches [_sealedFallback] once and caches the
   ///    result in [_types] for future O(1) lookups.
   @pragma('vm:prefer-inline')
-  ExtEncoded? _encodeExt(Object value) {
+  bool _encodeExt(Object value, Packer outPacker) {
     final type = value.runtimeType;
 
     // Layer 1: Inline cache (identical type).
     if (identical(type, _lastType)) {
       final ext = _lastExt;
       if (ext != null) {
-        return (type: ext.id, data: _groupPayload(ext, value));
+        _groupPayload(ext, value, outPacker);
+        return true;
       }
-      return null;
+      return false;
     }
 
     // Layer 2: Fast lookup in HashMap.
@@ -360,12 +289,13 @@ class MessagePack extends Codec<dynamic, Uint8List> implements MessagePackCtx {
     _lastExt = ext;
 
     if (ext != null) {
-      return (type: ext.id, data: _groupPayload(ext, value));
+      _groupPayload(ext, value, outPacker);
+      return true;
     }
 
     // Layer 3: Negative cache.
     if (_unhandledTypes.contains(type)) {
-      return null;
+      return false;
     }
 
     // Layer 4: Polymorphic fallback search with memoization.
@@ -376,55 +306,36 @@ class MessagePack extends Codec<dynamic, Uint8List> implements MessagePackCtx {
         _lastType = type;
         _lastExt = fallback;
 
-        return (type: fallback.id, data: _groupPayload(fallback, value));
+        _groupPayload(fallback, value, outPacker);
+        return true;
       }
     }
 
     // Mark as unhandled to skip future searches.
     _unhandledTypes.add(type);
 
-    return null;
+    return false;
   }
 
   /// Prepares the payload for a group extension.
   ///
-  /// Optimizes for `subId` values in the range 0..127 by using direct byte
-  /// manipulation instead of the [Packer] pipeline.
+  /// Uses a temporary buffer to write the subId and extension payload
+  /// seamlessly.
   @pragma('vm:prefer-inline')
-  Uint8List _groupPayload(_Ext ext, Object? value) {
-    final payload = ext.encode(value, this);
-
-    final subId = ext.subId;
-    if (subId == null) {
-      return payload;
-    }
-
-    // Zero-allocation fast path for positive fixint subIds.
-    if (subId >= 0 && subId <= 127) {
-      final result = Uint8List(payload.length + 1);
-      result[0] = subId;
-      result.setAll(1, payload);
-      return result;
-    }
-
-    // Fallback for larger subId values using the standard Packer.
-    final packer = Packer(initialBufferSize: payload.length + 9);
-    try {
-      packer
-        ..packInt(subId)
-        ..appendRaw(payload);
-
-      return packer.takeBytes();
-    } finally {
-      packer.dispose();
-    }
+  void _groupPayload(_Ext ext, Object? value, Packer outPacker) {
+    outPacker.packExtension(ext.id, (p) {
+      if (ext.subId != null) {
+        p.packInt(ext.subId);
+      }
+      ext.encode(value, p);
+    });
   }
 
   // Single-callback decoder for the Unpacker
 
   /// Handles extension decoding for the internal [Unpacker].
   @pragma('vm:prefer-inline')
-  Object? _decodeExt(int extType, Uint8List data) {
+  Object? _decodeExt(int extType, int length, Unpacker unpacker) {
     final ext = _decoders[_extIndex(extType)];
     if (ext == null) {
       throw MessagePackConfigurationException(
@@ -433,7 +344,7 @@ class MessagePack extends Codec<dynamic, Uint8List> implements MessagePackCtx {
       );
     }
 
-    return ext.decode(data, this);
+    return ext.decode(unpacker, length);
   }
 
   // Internal helpers
@@ -566,8 +477,8 @@ class MessagePackGroup {
       id: _extId,
       subId: subId,
       canHandle: (v) => v is T,
-      encode: (v, ctx) => encoder(v as T, ctx),
-      decode: (d, ctx) => decoder(d, ctx),
+      encode: (v, p) => encoder(v as T, p),
+      decode: (u, l) => decoder(u, l),
     );
 
     _subs[subId] = ext;
@@ -623,8 +534,8 @@ class _Ext {
   final bool Function(Object) canHandle;
 
   /// Encodes a value into bytes using a registered [Encoder].
-  final Uint8List Function(Object?, MessagePackCtx) encode;
+  final void Function(Object?, Packer) encode;
 
   /// Decodes bytes into a value using a registered [Decoder].
-  final Object? Function(Uint8List, MessagePackCtx) decode;
+  final Object? Function(Unpacker, int) decode;
 }

@@ -1061,9 +1061,17 @@ void main() {
 }
 
 class _MockInvalidTypeEncoder {
-  ExtEncoded? call(Object? value) => (type: 200, data: Uint8List(0));
+  bool call(Object? value, Packer p) {
+    p.packExtension(200, (p) {});
+    return true;
+  }
 }
 
 class _MockSuccessEncoder {
-  ExtEncoded? call(Object? value) => (type: 10, data: Uint8List.fromList([0]));
+  bool call(Object? value, Packer p) {
+    p.packExtension(10, (p) {
+      p.packInt(0);
+    });
+    return true;
+  }
 }

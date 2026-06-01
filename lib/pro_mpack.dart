@@ -18,10 +18,10 @@ import 'src/core/packer.dart';
 import 'src/core/unpacker.dart';
 
 export 'src/core/exception.dart';
-export 'src/core/packer.dart' show EncodeExt, ExtEncoded, Float, Packer;
+export 'src/core/packer.dart' show EncodeExt, Float, Packer;
 export 'src/core/unpacker.dart' show DecodeExt, Unpacker;
 export 'src/message_pack.dart'
-    show MessagePack, MessagePackCtx, MessagePackGroup;
+    show Decoder, Encoder, MessagePack, MessagePackGroup;
 
 /// Serializes [value] into the MessagePack binary format.
 ///
@@ -84,7 +84,9 @@ Uint8List serializeAll(
   );
 
   try {
-    packer.packAll(values);
+    for (final value in values) {
+      packer.pack(value);
+    }
     return packer.takeBytes();
   } finally {
     packer.dispose();
@@ -117,7 +119,11 @@ dynamic deserialize(Uint8List buffer, {DecodeExt? decodeExt}) {
 @pragma('vm:prefer-inline')
 List<dynamic> deserializeAll(Uint8List buffer, {DecodeExt? decodeExt}) {
   final unpacker = Unpacker(buffer: buffer, decodeExt: decodeExt);
-  final result = unpacker.unpackAll();
+  final result = <dynamic>[];
+
+  while (unpacker.hasBytesAvailable) {
+    result.add(unpacker.unpack());
+  }
 
   return result;
 }

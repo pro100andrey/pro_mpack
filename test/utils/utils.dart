@@ -9,11 +9,15 @@ class CustomExtension {
 }
 
 DecodeExt createCustomDecoder() =>
-    (extType, data) => 'Custom ext type $extType with data $data';
+    (extType, length, unpacker) =>
+        'Custom ext type $extType with data ${unpacker.readBytes(length)}';
 
-EncodeExt createCustomEncoder() => (value) {
+EncodeExt createCustomEncoder() => (value, packer) {
   if (value is CustomExtension) {
-    return (type: value.type, data: value.data);
+    packer.packExtension(value.type, (p) {
+      p.appendRaw(value.data);
+    });
+    return true;
   }
-  return null;
+  return false;
 };
