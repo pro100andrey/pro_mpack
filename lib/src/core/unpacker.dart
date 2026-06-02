@@ -119,13 +119,13 @@ extension type Unpacker._(_Internal _i) {
   ///
   /// Returns `null` if the value is a MessagePack nil byte.
   @pragma('vm:prefer-inline')
-  List<Object?>? unpackArray() => _readNullable(_unpackArray);
+  List<dynamic>? unpackArray() => _readNullable(_unpackArray);
 
   /// Unpacks the next value as a [Map].
   ///
   /// Returns `null` if the value is a MessagePack nil byte.
   @pragma('vm:prefer-inline')
-  Map<Object?, Object?>? unpackMap() => _readNullable(_unpackMap);
+  Map<dynamic, dynamic>? unpackMap() => _readNullable(_unpackMap);
 
   /// Unpacks the next value as a MessagePack timestamp extension ([DateTime]).
   ///
@@ -272,7 +272,7 @@ extension type Unpacker._(_Internal _i) {
 
   /// Internal: Decodes an array based on its header.
   @pragma('vm:prefer-inline')
-  List<Object?> _unpackArray(int header) {
+  List<dynamic> _unpackArray(int header) {
     final len = switch (header) {
       >= fFixArrayPrefix && <= fFixArrayEnd => header & fFixCountMask,
       fArray16 => _rd.readUint16(),
@@ -284,7 +284,7 @@ extension type Unpacker._(_Internal _i) {
       return const [];
     }
 
-    final list = List<Object?>.filled(len, null);
+    final list = List<dynamic>.filled(len, null);
     for (var i = 0; i < len; i++) {
       list[i] = unpack();
     }

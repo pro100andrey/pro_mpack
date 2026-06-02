@@ -124,11 +124,11 @@ class MessagePack extends Codec<dynamic, Uint8List> {
 
   /// Exposes the encoder converter for use in standard Dart APIs.
   @override
-  Converter<Object?, Uint8List> get encoder => _enc;
+  Converter<dynamic, Uint8List> get encoder => _enc;
 
   /// Exposes the decoder converter for use in standard Dart APIs.
   @override
-  Converter<Uint8List, Object?> get decoder => _dec;
+  Converter<Uint8List, dynamic> get decoder => _dec;
 
   // Registration
 
@@ -250,7 +250,7 @@ class MessagePack extends Codec<dynamic, Uint8List> {
   // Pack / Unpack
 
   @pragma('vm:prefer-inline')
-  Uint8List pack(Object? value) {
+  Uint8List pack(dynamic value) {
     final s = Packer(
       encodeExt: _encodeExtCached,
       initialBufferSize: bufferSize,
@@ -278,7 +278,7 @@ class MessagePack extends Codec<dynamic, Uint8List> {
   /// 4. **Amortized Fallback**: Searches [_sealedFallback] once and caches the
   ///    result in [_types] for future O(1) lookups.
   @pragma('vm:prefer-inline')
-  bool _encodeExt(Object value, Packer outPacker) {
+  bool _encodeExt(dynamic value, Packer outPacker) {
     final type = value.runtimeType;
 
     // Layer 1: Inline cache (identical type).
@@ -332,7 +332,7 @@ class MessagePack extends Codec<dynamic, Uint8List> {
   /// Uses a temporary buffer to write the subId and extension payload
   /// seamlessly.
   @pragma('vm:prefer-inline')
-  void _groupPayload(_Ext ext, Object? value, Packer outPacker) {
+  void _groupPayload(_Ext ext, dynamic value, Packer outPacker) {
     outPacker.packExtension(ext.id, (p) {
       if (ext.subId != null) {
         p.packInt(ext.subId);
@@ -346,7 +346,7 @@ class MessagePack extends Codec<dynamic, Uint8List> {
 
   /// Handles extension decoding for the internal [Unpacker].
   @pragma('vm:prefer-inline')
-  Object? _decodeExt(int extType, int length, Unpacker unpacker) {
+  dynamic _decodeExt(int extType, int length, Unpacker unpacker) {
     final ext = _decoders[_extIndex(extType)];
     if (ext == null) {
       throw MessagePackConfigurationException(
@@ -502,25 +502,25 @@ class MessagePackGroup {
 // Codec adapters
 
 /// Internal converter for encoding objects to MessagePack bytes.
-class _MessagePackEncoder extends Converter<Object?, Uint8List> {
+class _MessagePackEncoder extends Converter<dynamic, Uint8List> {
   _MessagePackEncoder(this._mp);
 
   final MessagePack _mp;
 
   @override
   @pragma('vm:prefer-inline')
-  Uint8List convert(Object? input) => _mp.pack(input);
+  Uint8List convert(dynamic input) => _mp.pack(input);
 }
 
 /// Internal converter for decoding MessagePack bytes to objects.
-class _MessagePackDecoder extends Converter<Uint8List, Object?> {
+class _MessagePackDecoder extends Converter<Uint8List, dynamic> {
   _MessagePackDecoder(this._mp);
 
   final MessagePack _mp;
 
   @override
   @pragma('vm:prefer-inline')
-  Object? convert(Uint8List input) => _mp.unpack(input);
+  dynamic convert(Uint8List input) => _mp.unpack<dynamic>(input);
 }
 
 // Internal extension record
@@ -542,11 +542,11 @@ class _Ext {
   final int? subId;
 
   /// Checks if this extension can handle the given value via the `is` operator.
-  final bool Function(Object) canHandle;
+  final bool Function(dynamic) canHandle;
 
   /// Encodes a value into bytes using a registered [Encoder].
-  final void Function(Object?, Packer) encode;
+  final void Function(dynamic, Packer) encode;
 
   /// Decodes bytes into a value using a registered [Decoder].
-  final Object? Function(Unpacker, int) decode;
+  final dynamic Function(Unpacker, int) decode;
 }

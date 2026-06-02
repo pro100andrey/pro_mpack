@@ -17,7 +17,7 @@ import 'exception.dart';
 ///
 /// Writes the extension data directly to the provided [packer] and returns
 /// `true` if handled, or `false` if the object is not a registered custom type.
-typedef EncodeExt = bool Function(Object value, Packer packer);
+typedef EncodeExt = bool Function(dynamic value, Packer packer);
 
 /// A wrapper for explicitly serializing a [double] as a 32-bit float.
 ///
@@ -41,7 +41,7 @@ class Float {
 }
 
 /// Internal data structure for the [Packer] extension type.
-typedef _Data = ({BinaryWriter writer, Object? encodeExt});
+typedef _Data = ({BinaryWriter writer, dynamic encodeExt});
 
 /// A high-performance MessagePack serializer.
 ///
@@ -159,7 +159,7 @@ extension type Packer._(_Data _data) {
   /// Throws a [MessagePackSizeException] if a string or collection exceeds
   /// the 4GB MessagePack limit.
   @pragma('vm:prefer-inline')
-  void pack(Object? value) {
+  void pack(dynamic value) {
     switch (value) {
       case null:
         packNull();
