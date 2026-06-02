@@ -151,6 +151,7 @@ extension type Unpacker._(_UnpackerState _st) {
   ///
   /// Throws [MessagePackFormatException] if the buffer is empty or contains
   /// invalid MessagePack data.
+  /// Throws [RangeError] if the buffer is exhausted prematurely mid-value.
   @pragma('vm:prefer-inline')
   dynamic unpack() {
     if (!hasBytesAvailable) {

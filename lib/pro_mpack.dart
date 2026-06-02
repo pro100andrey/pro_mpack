@@ -100,7 +100,8 @@ Uint8List serializeAll(
 /// [decodeExt] can be provided to handle custom extension types.
 ///
 /// Throws a [MessagePackException] if the buffer contains invalid MessagePack
-/// data or if the buffer is exhausted prematurely.
+/// data or is empty.
+/// Throws a [RangeError] if the buffer is exhausted prematurely mid-value.
 @pragma('vm:prefer-inline')
 dynamic deserialize(Uint8List buffer, {DecodeExt? decodeExt}) {
   final unpacker = Unpacker(buffer: buffer, decodeExt: decodeExt);
@@ -116,6 +117,7 @@ dynamic deserialize(Uint8List buffer, {DecodeExt? decodeExt}) {
 ///
 /// Throws a [MessagePackException] if any part of the buffer contains invalid
 /// MessagePack data.
+/// Throws a [RangeError] if the buffer is exhausted prematurely mid-value.
 @pragma('vm:prefer-inline')
 List<dynamic> deserializeAll(Uint8List buffer, {DecodeExt? decodeExt}) {
   final unpacker = Unpacker(buffer: buffer, decodeExt: decodeExt);

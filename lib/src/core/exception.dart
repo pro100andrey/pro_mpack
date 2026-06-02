@@ -54,7 +54,7 @@ sealed class MessagePackException implements Exception {
 /// specification.
 ///
 /// Examples include encountering reserved bytes (0xc1), malformed timestamps,
-/// or reaching the end of the buffer unexpectedly.
+/// or calling unpack on an empty buffer.
 class MessagePackFormatException extends MessagePackException {
   /// Creates a [MessagePackFormatException].
   const MessagePackFormatException(super.message, [super.suggestion]);

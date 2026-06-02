@@ -1057,6 +1057,16 @@ void main() {
         ..packString(null);
       expect(p.takeBytes(), equals([0xc0, 0xc0, 0xc0]));
     });
+
+    test('appendRaw appends bytes correctly', () {
+      final p = Packer()..appendRaw(Uint8List.fromList([1, 2, 3]));
+      expect(p.takeBytes(), equals([1, 2, 3]));
+    });
+
+    test('writeExt writes correct ext format', () {
+      final p = Packer()..writeExt(10, Uint8List.fromList([42]));
+      expect(p.takeBytes(), equals([0xd4, 10, 42]));
+    });
   });
 }
 
