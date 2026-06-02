@@ -106,14 +106,14 @@ extension type Packer._(_Data _data) {
   void packString(String? value) =>
       value == null ? packNull() : _packString(value);
 
-  /// Packs binary [value].
+  /// Packs a binary [value].
   ///
   /// Throws [MessagePackSizeException] if length exceeds [limitUint32].
   @pragma('vm:prefer-inline')
   void packBinary(Uint8List? value) =>
       value == null ? packNull() : _packBinary(value);
 
-  /// Packs an [value] as a MessagePack array.
+  /// Packs a [value] as a MessagePack array.
   ///
   /// Throws [MessagePackSizeException] if length exceeds [limitUint32].
   @pragma('vm:prefer-inline')
@@ -125,7 +125,7 @@ extension type Packer._(_Data _data) {
   /// Throws [MessagePackSizeException] if number of entries exceeds
   /// [limitUint32].
   @pragma('vm:prefer-inline')
-  void writeMap(Map<dynamic, dynamic>? value) =>
+  void packMap(Map<dynamic, dynamic>? value) =>
       value == null ? packNull() : _packMap(value);
 
   /// Packs a [DateTime] [value] using the standard MessagePack timestamp
@@ -406,7 +406,7 @@ extension type Packer._(_Data _data) {
     _wr.writeString(value);
   }
 
-  /// Packs binary [value].
+  /// Packs a binary [value].
   ///
   /// Throws [MessagePackSizeException] if length exceeds [limitUint32].
   @pragma('vm:prefer-inline')
@@ -436,7 +436,7 @@ extension type Packer._(_Data _data) {
     _wr.writeBytes(value);
   }
 
-  /// Packs an [value] as a MessagePack array.
+  /// Packs a [value] as a MessagePack array.
   ///
   /// Throws [MessagePackSizeException] if length exceeds [limitUint32].
   @pragma('vm:prefer-inline')
@@ -573,7 +573,7 @@ extension type Packer._(_Data _data) {
   @pragma('vm:prefer-inline')
   Uint8List takeBytes() {
     try {
-      return _wr.takeBytes();
+      return _wr.takeBytes(copy: true);
     } finally {
       BinaryWriterPool.release(_wr);
     }

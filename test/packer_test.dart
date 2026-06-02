@@ -1032,12 +1032,12 @@ void main() {
       expect(p2.takeBytes(), equals(p1.takeBytes()));
     });
 
-    test('writeMap delegates correctly', () {
+    test('packMap delegates correctly', () {
       final p1 = Packer();
       final p2 = Packer();
       final data = {'a': 1};
       p1.pack(data);
-      p2.writeMap(data);
+      p2.packMap(data);
       expect(p2.takeBytes(), equals(p1.takeBytes()));
     });
 

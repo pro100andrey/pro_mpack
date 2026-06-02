@@ -97,9 +97,6 @@ class MessagePack extends Codec<dynamic, Uint8List> {
   /// ExtId → decoder table. Range -128..127 mapped to 0..255.
   final _decoders = List<_Ext?>.filled(256, null);
 
-  @pragma('vm:prefer-inline')
-  static int _extIndex(int extId) => extId + 128;
-
   /// Cached last lookup result to avoid rehashing identical types in a row.
   Type? _lastType;
   _Ext? _lastExt;
@@ -116,9 +113,20 @@ class MessagePack extends Codec<dynamic, Uint8List> {
   late final _enc = _MessagePackEncoder(this);
   late final _dec = _MessagePackDecoder(this);
 
+  // Cached single-callbacks for the internal Packer and Unpacker to avoid
+  // closure overhead.
+  late final EncodeExt _encodeExtCached = _encodeExt;
+  late final DecodeExt _decodeExtCached = _decodeExt;
+
+  // Internal index mapping for extId → decoder lookup.
+  @pragma('vm:prefer-inline')
+  static int _extIndex(int extId) => extId + 128;
+
+  /// Exposes the encoder converter for use in standard Dart APIs.
   @override
   Converter<Object?, Uint8List> get encoder => _enc;
 
+  /// Exposes the decoder converter for use in standard Dart APIs.
   @override
   Converter<Uint8List, Object?> get decoder => _dec;
 
@@ -244,7 +252,7 @@ class MessagePack extends Codec<dynamic, Uint8List> {
   @pragma('vm:prefer-inline')
   Uint8List pack(Object? value) {
     final s = Packer(
-      encodeExt: _encodeExt,
+      encodeExt: _encodeExtCached,
       initialBufferSize: bufferSize,
     );
     try {
@@ -257,7 +265,7 @@ class MessagePack extends Codec<dynamic, Uint8List> {
 
   @pragma('vm:prefer-inline')
   T unpack<T>(Uint8List data) =>
-      Unpacker(buffer: data, decodeExt: _decodeExt).unpack() as T;
+      Unpacker(buffer: data, decodeExt: _decodeExtCached).unpack() as T;
 
   // Single-callback encoder for the Packer
 
@@ -280,6 +288,7 @@ class MessagePack extends Codec<dynamic, Uint8List> {
         _groupPayload(ext, value, outPacker);
         return true;
       }
+
       return false;
     }
 
@@ -290,6 +299,7 @@ class MessagePack extends Codec<dynamic, Uint8List> {
 
     if (ext != null) {
       _groupPayload(ext, value, outPacker);
+
       return true;
     }
 
@@ -327,6 +337,7 @@ class MessagePack extends Codec<dynamic, Uint8List> {
       if (ext.subId != null) {
         p.packInt(ext.subId);
       }
+
       ext.encode(value, p);
     });
   }

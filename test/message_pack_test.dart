@@ -193,7 +193,7 @@ void main() {
           () => MessagePack(
             extensions: (c) => c.register<Map<dynamic, dynamic>>(
               extId: 1,
-              encoder: (v, p) => p.writeMap(v),
+              encoder: (v, p) => p.packMap(v),
               decoder: (u, l) => u.unpackMap()!,
             ),
           ),
