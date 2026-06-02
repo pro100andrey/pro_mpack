@@ -37,8 +37,7 @@ final _emptyBuffer = Uint8List(0);
 /// - **Zero-Overhead**: No extra memory or object allocation for the wrapper.
 /// - **Efficient Decoding**: Stream-like parsing with minimal branching.
 /// - **Buffer Reuse**: Supports [rebind] to switch buffers without
-/// re-allocating
-///   the reader or unpacker instances.
+///   re-allocating the reader or unpacker instances.
 ///
 /// Example:
 /// ```dart
@@ -128,12 +127,15 @@ extension type Unpacker._(_Internal _i) {
   @pragma('vm:prefer-inline')
   Map<Object?, Object?>? unpackMap() => _readNullable(_unpackMap);
 
-  /// Unpacks the next value as a custom extension type (DateTime).
+  /// Unpacks the next value as a MessagePack timestamp extension ([DateTime]).
   ///
   /// Returns `null` if the value is a MessagePack nil byte.
   @pragma('vm:prefer-inline')
   DateTime? unpackTimestamp() => _readNullable(_unpackExtension) as DateTime?;
 
+  /// Unpacks the next value as a custom extension type [T].
+  ///
+  /// Returns `null` if the value is a MessagePack nil byte.
   @pragma('vm:prefer-inline')
   T? unpackExtension<T>() => _readNullable(_unpackExtension) as T?;
 
