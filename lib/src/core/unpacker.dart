@@ -21,8 +21,8 @@ import 'exception.dart';
 /// Should return the decoded Dart object.
 typedef DecodeExt = dynamic Function(int type, int length, Unpacker unpacker);
 
-/// Internal state for the [Unpacker] extension type.
-typedef _Internal = ({BinaryReader reader, dynamic decodeExt});
+/// Internal unpacker state for the [Unpacker] extension type.
+typedef _UnpackerState = ({BinaryReader reader, dynamic decodeExt});
 
 /// Shared empty buffer for default initialization.
 final _emptyBuffer = Uint8List(0);
@@ -44,26 +44,26 @@ final _emptyBuffer = Uint8List(0);
 /// final unpacker = Unpacker(buffer: bytes);
 /// final data = unpacker.unpack();
 /// ```
-extension type Unpacker._(_Internal _i) {
+extension type Unpacker._(_UnpackerState _st) {
   /// Creates a new [Unpacker] for the given [buffer].
   ///
   /// * [decodeExt]: Optional callback for decoding custom extension types.
   Unpacker({
     required Uint8List buffer,
     DecodeExt? decodeExt,
-  }) : _i = (reader: BinaryReader(buffer), decodeExt: decodeExt);
+  }) : _st = (reader: BinaryReader(buffer), decodeExt: decodeExt);
 
   /// Creates an [Unpacker] with an empty buffer, ready to be [rebind]-ed.
   Unpacker.withEmptyBuffer({
     DecodeExt? decodeExt,
-  }) : _i = (
+  }) : _st = (
          reader: BinaryReader(_emptyBuffer),
          decodeExt: decodeExt,
        );
 
   /// The underlying [BinaryReader].
   @pragma('vm:prefer-inline')
-  BinaryReader get _rd => _i.reader;
+  BinaryReader get _rd => _st.reader;
 
   /// The current read position in the underlying buffer.
   @pragma('vm:prefer-inline')
@@ -71,7 +71,7 @@ extension type Unpacker._(_Internal _i) {
 
   /// The custom extension decoder callback.
   @pragma('vm:prefer-inline')
-  DecodeExt? get _ext => _i.decodeExt as DecodeExt?;
+  DecodeExt? get _ext => _st.decodeExt as DecodeExt?;
 
   /// Whether there are more bytes to read in the current buffer.
   @pragma('vm:prefer-inline')

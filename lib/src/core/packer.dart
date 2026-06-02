@@ -40,8 +40,8 @@ class Float {
   String toString() => 'Float($value)';
 }
 
-/// Internal data structure for the [Packer] extension type.
-typedef _Data = ({BinaryWriter writer, dynamic encodeExt});
+/// Internal packer state structure for the [Packer] extension type.
+typedef _PackerState = ({BinaryWriter writer, dynamic encodeExt});
 
 /// A high-performance MessagePack serializer.
 ///
@@ -61,25 +61,25 @@ typedef _Data = ({BinaryWriter writer, dynamic encodeExt});
 /// packer.pack({'key': 'value', 'list': [1, 2, 3]});
 /// final bytes = packer.takeBytes();
 /// ```
-extension type Packer._(_Data _data) {
+extension type Packer._(_PackerState _st) {
   /// Creates a new [Packer] instance.
   ///
   /// * [encodeExt]: Optional callback for encoding custom extension types.
   /// * [initialBufferSize]: The initial capacity of the internal buffer.
   ///   The buffer will grow automatically if needed.
   Packer({EncodeExt? encodeExt, int initialBufferSize = 1024})
-    : _data = (
+    : _st = (
         writer: BinaryWriterPool.acquire(initialBufferSize),
         encodeExt: encodeExt,
       );
 
   /// The underlying [BinaryWriter].
   @pragma('vm:prefer-inline')
-  BinaryWriter get _wr => _data.writer;
+  BinaryWriter get _wr => _st.writer;
 
   /// The custom extension encoder callback.
   @pragma('vm:prefer-inline')
-  EncodeExt? get _ext => _data.encodeExt as EncodeExt?;
+  EncodeExt? get _ext => _st.encodeExt as EncodeExt?;
 
   /// Packs a boolean [value].
   @pragma('vm:prefer-inline')
