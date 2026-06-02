@@ -70,7 +70,7 @@ final mp = MessagePack(
             decoder: (u, l) => Product(
               title: u.unpackString()!,
               description: u.unpackString()!,
-              price: u.unpackExtension<BigInt>()!, // or u.unpack()
+              price: u.unpackAs<BigInt>(),
             ),
           ),
       );

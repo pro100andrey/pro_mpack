@@ -131,13 +131,19 @@ extension type Unpacker._(_UnpackerState _st) {
   ///
   /// Returns `null` if the value is a MessagePack nil byte.
   @pragma('vm:prefer-inline')
-  DateTime? unpackTimestamp() => _readNullable(_unpackExtension) as DateTime?;
+  DateTime? unpackTimestamp() => _readNullable(_unpackExt) as DateTime?;
 
   /// Unpacks the next value as a custom extension type [T].
   ///
   /// Returns `null` if the value is a MessagePack nil byte.
   @pragma('vm:prefer-inline')
-  T? unpackExtension<T>() => _readNullable(_unpackExtension) as T?;
+  T unpackExt<T>() => _readNullable(_unpackExt) as T;
+
+  /// Unpacks the next value as the expected type [T].
+  ///
+  /// Throws a [TypeError] if the unpacked value cannot be cast to [T].
+  @pragma('vm:prefer-inline')
+  T unpackAs<T>() => unpack() as T;
 
   /// Unpacks the next object from the buffer, automatically detecting its type.
   ///
@@ -191,7 +197,7 @@ extension type Unpacker._(_UnpackerState _st) {
       fFixExt16 ||
       fExt8 ||
       fExt16 ||
-      fExt32 => _unpackExtension(header),
+      fExt32 => _unpackExt(header),
 
       fNeverUsed => throw const MessagePackFormatException(
         'Invalid format byte 0xc1 (never used)',
@@ -318,7 +324,7 @@ extension type Unpacker._(_UnpackerState _st) {
 
   /// Internal: Decodes an extension payload of a given length.
   @pragma('vm:prefer-inline')
-  dynamic _unpackExtension(int header) {
+  dynamic _unpackExt(int header) {
     final len = switch (header) {
       fFixExt1 => 1,
       fFixExt2 => 2,
