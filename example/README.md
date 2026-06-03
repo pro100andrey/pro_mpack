@@ -12,9 +12,11 @@ A simple overview showing how to use the core API:
 
 ## 2. [Extensions in Depth](extensions/)
 
-A focused example on how to build and register custom extensions for complex data types:
+A focused example on how to build and register custom extensions for complex, nested data types and external classes:
 
-* **Data Classes**: Encoding custom objects like `Point` or `Color`.
+* **Polymorphic Extensions**: How to register external types like `BigInt` which have internal implementations (`_BigIntImpl`).
+* **Nested Groups**: Organizing relational structures (`User`, `Address`, `Product`) using `registerGroup` and `subId` to bypass the 256-ID limit.
+* **Type-Safe Collections**: Decoding nested arrays of specific models efficiently using `unpackArrayOf<T>()` and `unpackAs<T>()`.
 * **High Performance**: Using the `MessagePack` instance for optimized `O(1)` extension lookups.
 
 ## 3. [Advanced Network Streaming](network_streaming/)

@@ -1,65 +1,192 @@
-import 'dart:io';
+// Disable warnings for print statements in this example
+// ignore_for_file: avoid_print
+
+import 'dart:typed_data';
 
 import 'package:pro_mpack/pro_mpack.dart';
 
-// A custom class we want to serialize natively
-class Point {
-  const Point(this.x, this.y);
+final mp = MessagePack(
+  extensions: (config) {
+    config
+      // Register a custom extension for BigInt
+      ..register(
+        extId: 1,
+        // BigInt.parse() returns a _BigIntImpl, we need polymorphic
+        // registration
+        polymorphic: true,
+        encoder: (i, p) => p.packBinary(bigIntToBytes(i)),
+        decoder: (u, l) => bytesToBigInt(u.unpackBinary()!),
+      )
+      // Register a group for our custom classes: User, Address
+      ..registerGroup(
+        extId: 2,
+        builder: (group) => group
+          ..add(
+            subId: 1,
+            encoder: (u, p) => p
+              ..packInt(u.id)
+              ..packString(u.name)
+              ..packInt(u.age)
+              ..packString(u.email)
+              ..packTimestamp(u.created)
+              ..packTimestamp(u.updated)
+              ..packArray(u.addresses)
+              ..packArray(u.products),
+            decoder: (u, l) => User(
+              id: u.unpackInt()!,
+              name: u.unpackString()!,
+              age: u.unpackInt()!,
+              email: u.unpackString()!,
+              created: u.unpackTimestamp()!,
+              updated: u.unpackTimestamp()!,
+              addresses: u.unpackArrayOf<Address>(),
+              products: u.unpackArrayOf<Product>(),
+            ),
+          )
+          ..add(
+            subId: 2,
+            encoder: (addr, p) => p
+              ..packString(addr.street)
+              ..packString(addr.city)
+              ..packInt(addr.zipCode),
+            decoder: (u, l) => Address(
+              street: u.unpackString()!,
+              city: u.unpackString()!,
+              zipCode: u.unpackInt()!,
+            ),
+          ),
+      )
+      // Register a group for Product, which contains BigInt as a field
+      ..registerGroup(
+        extId: 3,
+        builder: (group) => group
+          ..add(
+            subId: 1,
+            encoder: (product, p) => p
+              ..packString(product.title)
+              ..packString(product.description)
+              ..pack(product.price),
 
-  final int x;
-  final int y;
-
-  @override
-  String toString() => 'Point(x: $x, y: $y)';
-}
+            decoder: (u, l) => Product(
+              title: u.unpackString()!,
+              description: u.unpackString()!,
+              price: u.unpackAs<BigInt>(),
+            ),
+          ),
+      );
+  },
+);
 
 void main() {
-  _log('--- Extensions pro_mpack Example ---');
+  final users = generateUsers(100).toList();
+  final bytes = mp.pack(users);
+  print('Serialized ${bytes.length} bytes');
 
-  // Create a reusable MessagePack instance and register extensions.
-  // This is highly recommended for performance (O(1) lookups).
-  final mp = MessagePack(
-    extensions: (mp) {
-      mp.register<Point>(
-        // MessagePack extension types can be from 0 to 127
-        extId: 42,
+  final decodedUsers = mp.unpack<List<dynamic>>(bytes).cast<User>();
 
-        // Custom encoder
-        encoder: (point, packer) {
-          packer
-            ..packInt(point.x)
-            ..packInt(point.y);
-        },
-
-        // Custom decoder
-        decoder: (unpacker, length) {
-          final x = unpacker.unpackInt()!;
-          final y = unpacker.unpackInt()!;
-          return Point(x, y);
-        },
-      );
-    },
-  );
-
-  const myPoint = Point(1920, 1080);
-
-  // We can also nest our custom type inside standard collections
-  final payload = {
-    'resolution': myPoint,
-    'description': 'Full HD',
-  };
-
-  _log('\nOriginal Payload:');
-  _log(payload);
-
-  final bytes = mp.pack(payload);
-  _log('\nSerialized Bytes (Notice the extension bytes):');
-  _log(bytes);
-
-  final decoded = mp.unpack<Map<dynamic, dynamic>>(bytes);
-  _log('\nDecoded Payload (Point object restored perfectly!):');
-  _log(decoded);
-  _log('Type of resolution: ${decoded['resolution'].runtimeType}');
+  print('Original users: ${users.length}');
+  print('Decoded users: ${decodedUsers.length}');
 }
 
-void _log([Object? object = '']) => stdout.writeln(object);
+Iterable<User> generateUsers(int count) sync* {
+  for (var i = 0; i < count; i++) {
+    yield User(
+      id: i + 1,
+      name: 'User $i',
+      age: 20 + (i % 30),
+      email: 'user$i@example.com',
+      created: DateTime.utc(2020 + (i % 4)),
+      updated: DateTime.utc(2021 + (i % 3)),
+      addresses: [
+        const Address(
+          street: '123 Main St',
+          city: 'City',
+          zipCode: 10000,
+        ),
+      ],
+      products: [
+        Product(
+          title: 'Product $i',
+          description: 'Description for product $i',
+          price:
+              BigInt.parse('10000000000000${i}00000000000000') + BigInt.from(i),
+        ),
+      ],
+    );
+  }
+}
+
+class Address {
+  const Address({
+    required this.street,
+    required this.city,
+    required this.zipCode,
+  });
+
+  final String street;
+  final String city;
+  final int zipCode;
+
+  @override
+  String toString() => 'Address(street: $street, city: $city, zip: $zipCode)';
+}
+
+class User {
+  const User({
+    required this.id,
+    required this.name,
+    required this.age,
+    required this.email,
+    required this.created,
+    required this.updated,
+    required this.addresses,
+    required this.products,
+  });
+
+  final int id;
+  final String name;
+  final int age;
+  final String email;
+  final DateTime created;
+  final DateTime updated;
+  final List<Address> addresses;
+  final List<Product> products;
+
+  @override
+  String toString() =>
+      'User(id: $id, name: $name, age: $age, email: $email, created: $created, '
+      'updated: $updated, addresses: $addresses, products: $products)';
+}
+
+class Product {
+  Product({
+    required this.description,
+    required this.price,
+    required this.title,
+  });
+
+  final BigInt price;
+  final String description;
+  final String title;
+
+  @override
+  String toString() =>
+      'Product(title: $title, description: $description, price: $price)';
+}
+
+Uint8List bigIntToBytes(BigInt number) {
+  if (number == .zero) {
+    return .fromList([0]);
+  }
+
+  final byteLength = (number.bitLength + 7) >> 3;
+  return .fromList(
+    .generate(
+      byteLength,
+      (i) => ((number >> ((byteLength - 1 - i) * 8)) & .from(255)).toInt(),
+    ),
+  );
+}
+
+BigInt bytesToBigInt(Uint8List bytes) =>
+    bytes.fold(.zero, (result, byte) => (result << 8) | .from(byte));
