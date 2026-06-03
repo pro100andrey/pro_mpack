@@ -81,6 +81,18 @@ For simple one-off serialization, you can use the top-level declarative function
 ```dart
 final bytes = serialize({'key': 'value', 'count': 42});
 final decoded = deserialize(bytes);
+
+// They also support on-the-fly custom extensions!
+final tokenBytes = serialize(
+  Token('abc'),
+  encodeExt: (value, packer) {
+    if (value is Token) {
+      packer.packExt(99, (p) => p.packString(value.value));
+      return true;
+    }
+    return false;
+  },
+);
 ```
 
 ## Recipes & Patterns

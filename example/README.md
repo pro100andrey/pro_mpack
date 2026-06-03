@@ -8,7 +8,8 @@ A simple overview showing how to use the core API:
 
 * **Simple Serialization**: How to encode and decode standard types.
 * **Collections**: Working with Lists and Maps.
-* **Basic Extension**: A quick look at custom extensions.
+* **Reusable Instance**: High-performance caching with a `MessagePack` instance.
+* **One-off Extensions**: Using `encodeExt` and `decodeExt` for quick custom types without a registry.
 
 ## 2. [Extensions in Depth](extensions/)
 
