@@ -214,10 +214,9 @@ extension type Packer._(_PackerState _st) {
 
   /// Packs a custom extension payload.
   ///
-  /// The [builder] receives a temporary [Packer] to write the payload.
-  /// This ensures zero-allocation routing since the payload length is
-  /// calculated and the appropriate extension header is written before the
-  /// payload, followed directly by copying the temporary buffer.
+  /// The [builder] receives the current [Packer] to write the payload.
+  /// Uses zero-allocation in-place buffer shifting to dynamically calculate
+  /// the extension header size after the payload is written.
   @pragma('vm:prefer-inline')
   void packExt(int type, void Function(Packer) builder) {
     if (type < -128 || type > 127) {
@@ -227,20 +226,47 @@ extension type Packer._(_PackerState _st) {
       );
     }
 
-    final tempWriter = BinaryWriterPool.acquire(128);
-    final tempPacker = Packer._((writer: tempWriter, encodeExt: _ext));
+    const maxHeaderSize = 6; // Max header size for ext formats (ext32)
 
-    try {
-      builder(tempPacker);
+    final startPos = _wr.reserve(maxHeaderSize);
 
-      final payloadLength = tempWriter.bytesWritten;
-      _writeExtHeader(type, payloadLength);
+    builder(this);
 
-      if (payloadLength > 0) {
-        _wr.writeBytes(tempWriter.toBytes());
-      }
-    } finally {
-      tempPacker.dispose(); // releases tempWriter to pool
+    final payloadLength = _wr.bytesWritten - startPos - maxHeaderSize;
+
+    final (headerSize, marker) = switch (payloadLength) {
+      1 => (2, fFixExt1),
+      2 => (2, fFixExt2),
+      4 => (2, fFixExt4),
+      8 => (2, fFixExt8),
+      16 => (2, fFixExt16),
+      <= limitUint8 => (3, fExt8),
+      <= limitUint16 => (4, fExt16),
+      _ => (6, fExt32),
+    };
+
+    if (headerSize < maxHeaderSize) {
+      _wr.shiftBytes(
+        startPos + maxHeaderSize,
+        _wr.bytesWritten,
+        startPos + headerSize,
+      );
+    }
+
+    _wr.setUint8(startPos, marker);
+
+    switch (headerSize) {
+      case 2:
+        _wr.setUint8(startPos + 1, type);
+      case 3:
+        _wr.setUint8(startPos + 1, payloadLength);
+        _wr.setUint8(startPos + 2, type);
+      case 4:
+        _wr.setUint16(startPos + 1, payloadLength);
+        _wr.setUint8(startPos + 3, type);
+      case 6:
+        _wr.setUint32(startPos + 1, payloadLength);
+        _wr.setUint8(startPos + 5, type);
     }
   }
 
