@@ -1,9 +1,13 @@
 <!-- markdownlint-disable-file MD025 -->
 
-# 2.2.0
+# 3.0.0
 
-- **Fix**: Added explicit `sec >= 0` check in timestamp serializer (`writeTimestamp`) to ensure MessagePack spec compliance for 64-bit timestamp format (unsigned 34-bit seconds field). Negative seconds (pre-1970 dates) now correctly route to 96-bit timestamp format.
-- **Test**: Added comprehensive timestamp serialization tests covering TS96 (pre-1970 dates, byte-order verification) and TS64 (post-1970 with nanoseconds, data64 layout validation).
+- **Feat**: Introduced zero-allocation streaming capabilities. Added `MessagePackStreamTransformer` (`streamDecoder`) to seamlessly reconstruct fragmented chunks byte-by-byte without allocating temporary buffers.
+- **Feat**: Massive API modernization. Introduced `MessagePackScanner` as an abstract final class, replaced `Object` with `dynamic` for better type flexibility, added `unpackAs<T>()`, and added configuration for `allowOverwrite` and `unhandledTypes`.
+- **Performance**: Significant performance improvements across the entire encoder and decoder. Eliminated temporary memory allocations for extension packing by implementing the *Reserve & Backpatch* pattern.
+- **Examples**: Replaced simple examples with four robust, real-world runnable architectures: Basic Usage, Extensions in Depth, Advanced Network Streaming, and Big Data File Streaming.
+- **Docs**: Completely restructured the main `README.md` and inline documentation.
+- **Fix**: Resolved internal type-checking bugs in `_checkType<T>()` and other minor edge-cases.
 
 # 2.1.0
 
