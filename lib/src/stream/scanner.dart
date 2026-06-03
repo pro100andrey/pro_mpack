@@ -10,7 +10,10 @@ import '../core/constants.dart';
 ///
 /// If it reaches the end of the available bytes prematurely, it relies on
 /// the [NotEnoughDataException] thrown by the reader.
-extension type const MessagePackScanner._(dynamic _) {
+abstract final class MessagePackScanner {
+  /// Private constructor to prevent instantiation
+  MessagePackScanner._();
+
   /// Skips exactly one MessagePack encoded value.
   ///
   /// Throws [NotEnoughDataException] if there are not enough bytes in the
