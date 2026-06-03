@@ -205,7 +205,7 @@ Explore the [example](example/) directory for complete, runnable architectures:
 | **`Packer`** | The low-level zero-allocation encoder. Borrows memory from `BinaryWriterPool` to write data rapidly. |
 | **`Unpacker`** | The low-level decoder for reading primitive structures directly from a payload. |
 | **`streamDecoder`** | A zero-allocation `StreamTransformer` that pieces together fragmented chunks of `MessagePack` data. |
-| **`serialize` / `deserialize`**| Top-level global functions for one-off convenience parsing. |
+| **`serialize` | `deserialize`**  Top-level global functions for one-off convenience parsing. |
 
 ## Error Handling
 

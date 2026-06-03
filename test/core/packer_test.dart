@@ -5,14 +5,14 @@ import 'package:test/test.dart';
 
 class _MockInvalidTypeEncoder {
   bool call(Object? value, Packer p) {
-    p.packExtension(200, (p) {});
+    p.packExt(200, (p) {});
     return true;
   }
 }
 
 class _MockSuccessEncoder {
   bool call(Object? value, Packer p) {
-    p.packExtension(10, (p) {
+    p.packExt(10, (p) {
       p.packInt(0);
     });
     return true;
@@ -110,8 +110,8 @@ void main() {
       expect(p.takeBytes(), equals([1, 2, 3]));
     });
 
-    test('writeExt writes correct ext format', () {
-      final p = Packer()..writeExt(10, Uint8List.fromList([42]));
+    test('packRawExtension writes correct ext format', () {
+      final p = Packer()..packRawExtension(10, Uint8List.fromList([42]));
       expect(p.takeBytes(), equals([0xd4, 10, 42]));
     });
   });
@@ -152,7 +152,7 @@ void main() {
       );
     });
 
-    test('writeExt success path in encode', () {
+    test('packRawExtension success path in encode', () {
       final s = Packer(encodeExt: _MockSuccessEncoder().call)..pack(Object());
       final bytes = s.takeBytes();
       expect(bytes, [0xd4, 0x0a, 0x00]);

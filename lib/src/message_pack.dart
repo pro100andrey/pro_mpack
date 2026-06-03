@@ -340,7 +340,7 @@ class MessagePack extends Codec<dynamic, Uint8List> {
   /// seamlessly.
   @pragma('vm:prefer-inline')
   void _groupPayload(_Ext ext, dynamic value, Packer outPacker) {
-    outPacker.packExtension(ext.id, (p) {
+    outPacker.packExt(ext.id, (p) {
       if (ext.subId != null) {
         p.packInt(ext.subId);
       }

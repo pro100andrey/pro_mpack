@@ -1,5 +1,14 @@
 import 'dart:io';
+
 import 'package:pro_mpack/pro_mpack.dart';
+
+class Token {
+  Token(this.value);
+  final String value;
+
+  @override
+  String toString() => 'Token($value)';
+}
 
 void main() {
   _log('--- Basic pro_mpack Example ---');
@@ -35,6 +44,35 @@ void main() {
 
   _log('\nUnpacked with reusable instance:');
   _log(unpackedData);
+
+  // 3. Quick Custom Extensions with Top-Level Functions
+  // You can pass encodeExt and decodeExt directly to serialize/deserialize
+  final token = Token('abc-123');
+
+  final tokenBytes = serialize(
+    token,
+    encodeExt: (value, packer) {
+      if (value is Token) {
+        packer.packExt(99, (p) => p.packString(value.value));
+        return true;
+      }
+      return false;
+    },
+  );
+
+  final decodedToken = deserialize(
+    tokenBytes,
+    decodeExt: (extType, length, unpacker) {
+      if (extType == 99) {
+        return Token(unpacker.unpackString()!);
+      }
+      // Return null or throw if the extension type is not recognized
+      return null;
+    },
+  );
+
+  _log('\nOne-off Extension Serialization (ExtType 99):');
+  _log(decodedToken);
 }
 
 void _log([Object? object = '']) => stdout.writeln(object);

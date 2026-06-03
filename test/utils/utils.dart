@@ -14,7 +14,7 @@ DecodeExt createCustomDecoder() =>
 
 EncodeExt createCustomEncoder() => (value, packer) {
   if (value is CustomExtension) {
-    packer.packExtension(value.type, (p) {
+    packer.packExt(value.type, (p) {
       p.appendRaw(value.data);
     });
     return true;

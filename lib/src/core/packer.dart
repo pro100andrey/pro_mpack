@@ -219,7 +219,7 @@ extension type Packer._(_PackerState _st) {
   /// calculated and the appropriate extension header is written before the
   /// payload, followed directly by copying the temporary buffer.
   @pragma('vm:prefer-inline')
-  void packExtension(int type, void Function(Packer) builder) {
+  void packExt(int type, void Function(Packer) builder) {
     if (type < -128 || type > 127) {
       throw const MessagePackConfigurationException(
         'Type must be in the range of -128 to 127.',
@@ -252,7 +252,7 @@ extension type Packer._(_PackerState _st) {
   /// Throws [MessagePackConfigurationException] if [type] is out of range.
   /// Throws [MessagePackSizeException] if [data] length exceeds [limitUint32].
   @pragma('vm:prefer-inline')
-  void writeExt(int type, Uint8List data) {
+  void packRawExtension(int type, Uint8List data) {
     if (type < -128 || type > 127) {
       throw const MessagePackConfigurationException(
         'Type must be in the range of -128 to 127.',
