@@ -29,8 +29,9 @@ A multi-file architectural example simulating a real-world IoT/Telemetry protoco
 
 A high-performance example demonstrating how to process large binary files:
 
+* **Real-world File Structure**: Demonstrates how to write and parse files with custom headers (Magic Bytes, Version) and MessagePack metadata blocks.
 * **Incremental Processing**: Using `File.openRead()` and `streamDecoder` to process data without loading the entire file into RAM.
-* **Market Data Simulation**: Packing and parsing 250,000+ trade records (Market Ticks) on-the-fly.
+* **Market Data Simulation**: Packing and parsing 500,000 trade records (Market Ticks) on-the-fly using `Packer` batching (`takeBytes(dispose: false)`).
 * **Memory Efficiency**: Maintaining a constant memory footprint regardless of file size.
 
 ---

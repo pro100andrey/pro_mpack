@@ -4,7 +4,8 @@ import 'package:pro_mpack/pro_mpack.dart';
 
 // A custom class we want to serialize natively
 class Point {
-  Point(this.x, this.y);
+  const Point(this.x, this.y);
+
   final int x;
   final int y;
 
@@ -40,7 +41,7 @@ void main() {
     },
   );
 
-  final myPoint = Point(1920, 1080);
+  const myPoint = Point(1920, 1080);
 
   // We can also nest our custom type inside standard collections
   final payload = {
@@ -55,7 +56,7 @@ void main() {
   _log('\nSerialized Bytes (Notice the extension bytes):');
   _log(bytes);
 
-  final decoded = mp.unpack<Map<String, dynamic>>(bytes);
+  final decoded = mp.unpack<Map<dynamic, dynamic>>(bytes);
   _log('\nDecoded Payload (Point object restored perfectly!):');
   _log(decoded);
   _log('Type of resolution: ${decoded['resolution'].runtimeType}');

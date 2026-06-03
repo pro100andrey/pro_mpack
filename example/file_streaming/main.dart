@@ -13,7 +13,7 @@ import 'package:pro_mpack/pro_mpack.dart';
 void main() async {
   final watch = Stopwatch()..start();
   const fileName = 'market_history_mpack.bin';
-  const totalTicks = 500000;
+  const totalTicks = 1000000;
 
   _log('- File Streaming Example: Real-world File Structure (pro_mpack) -');
 
@@ -102,30 +102,25 @@ void main() async {
   // Pipe the remaining bytes into the zero-allocation streamDecoder
   final tickStream = byteStream.transform(mp.streamDecoder);
 
-  var isFirstObject = true;
+  await for (final data in tickStream) {
+    switch (data) {
+      case Map():
+        _log('📄 File Metadata: $data');
+        continue;
 
-  await for (final dynamic data in tickStream) {
-    if (isFirstObject) {
-      // The first MessagePack object in our structure is the metadata Map
-      _log('📄 File Metadata: $data');
-      isFirstObject = false;
-      continue;
-    }
+      case [_, final double price, final int volume, _]:
+        tickCount++;
+        totalVolume += volume;
+        if (price > maxPrice) {
+          maxPrice = price;
+        }
 
-    // Subsequent objects are our arrays: [timestamp, price, volume, isBuy]
-    if (data is List) {
-      final price = (data[1] as num).toDouble();
-      final volume = data[2] as int;
+        if (tickCount % 50000 == 0) {
+          _log('   Processed $tickCount ticks...');
+        }
 
-      tickCount++;
-      totalVolume += volume;
-      if (price > maxPrice) {
-        maxPrice = price;
-      }
-
-      if (tickCount % 50000 == 0) {
-        _log('   Processed $tickCount ticks...');
-      }
+      case _:
+        _log('⚠️  Unrecognized data format: $data');
     }
   }
 
