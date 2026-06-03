@@ -22,6 +22,7 @@ export 'src/core/packer.dart' show EncodeExt, Float, Packer;
 export 'src/core/unpacker.dart' show DecodeExt, Unpacker;
 export 'src/message_pack.dart'
     show Decoder, Encoder, MessagePack, MessagePackGroup;
+export 'src/stream/transformer.dart' show MessagePackStreamTransformer;
 
 /// Serializes [value] into the MessagePack binary format.
 ///

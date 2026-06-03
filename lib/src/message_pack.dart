@@ -20,6 +20,7 @@
 /// - **ExtId validation**: Range -128..127 enforced at registration time.
 library;
 
+import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -27,6 +28,7 @@ import 'dart:typed_data';
 import 'core/exception.dart';
 import 'core/packer.dart';
 import 'core/unpacker.dart';
+import 'stream/transformer.dart';
 
 // Public type aliases
 
@@ -129,6 +131,11 @@ class MessagePack extends Codec<dynamic, Uint8List> {
   /// Exposes the decoder converter for use in standard Dart APIs.
   @override
   Converter<Uint8List, dynamic> get decoder => _dec;
+
+  /// Returns a [StreamTransformer] that decodes a stream of MessagePack bytes
+  /// into a stream of objects.
+  StreamTransformer<List<int>, dynamic> get streamDecoder =>
+      MessagePackStreamTransformer(this);
 
   // Registration
 
