@@ -211,6 +211,8 @@ Explore the [example](example/) directory for complete, runnable architectures:
 
 ## API Overview
 
+For complete and detailed API documentation, visit the [official pub.dev API reference](https://pub.dev/documentation/pro_mpack/latest/pro_mpack/).
+
 | Component | Description |
 | --------- | ----------- |
 | **`MessagePack`** | The main codec instance. Maintains a fast `O(1)` cache of all registered extensions and serializers. |
