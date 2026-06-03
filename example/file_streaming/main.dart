@@ -15,10 +15,10 @@ void main() async {
   const fileName = 'market_history_mpack.bin';
   const totalTicks = 1000000;
 
-  _log('- File Streaming Example: Real-world File Structure (pro_mpack) -');
+  log('- File Streaming Example: Real-world File Structure (pro_mpack) -');
 
   // --- 1. Generation Phase ---
-  _log('\nGenerating $totalTicks ticks into "$fileName"...');
+  log('\nGenerating $totalTicks ticks into "$fileName"...');
 
   final file = File(fileName);
   final ios = file.openWrite();
@@ -68,14 +68,14 @@ void main() async {
   writeWatch.stop();
   await ios.close();
 
-  _log(
+  log(
     'File generated. Size: '
     '${(file.lengthSync() / 1024 / 1024).toStringAsFixed(2)} MB, '
     'time: ${writeWatch.elapsedMilliseconds} ms',
   );
 
   // --- 2. Parsing Phase ---
-  _log('\nReading and parsing file incrementally...');
+  log('\nReading and parsing file incrementally...');
 
   var tickCount = 0;
   var totalVolume = 0;
@@ -88,9 +88,9 @@ void main() async {
   final magicAndVersion = await headerFile.read(5);
 
   if (magicAndVersion case [0x4D, 0x4B, 0x54, 0x31, final version]) {
-    _log('✅ Magic bytes matched (MKT). Version: $version');
+    log('✅ Magic bytes matched (MKT). Version: $version');
   } else {
-    _log('❌ Invalid Magic Bytes!');
+    log('❌ Invalid Magic Bytes!');
     return;
   }
 
@@ -105,7 +105,7 @@ void main() async {
   await for (final data in tickStream) {
     switch (data) {
       case Map():
-        _log('📄 File Metadata: $data');
+        log('📄 File Metadata: $data');
         continue;
 
       case [_, final double price, final int volume, _]:
@@ -116,30 +116,30 @@ void main() async {
         }
 
         if (tickCount % 50000 == 0) {
-          _log('   Processed $tickCount ticks...');
+          log('   Processed $tickCount ticks...');
         }
 
       case _:
-        _log('⚠️  Unrecognized data format: $data');
+        log('⚠️  Unrecognized data format: $data');
     }
   }
 
   readWatch.stop();
 
-  _log('\n✅ Parsing complete!');
-  _log('Total Ticks: $tickCount');
-  _log('Total Volume: $totalVolume');
-  _log('Max Price: \$${maxPrice.toStringAsFixed(2)}');
-  _log('Read time taken: ${readWatch.elapsedMilliseconds}ms');
+  log('\n✅ Parsing complete!');
+  log('Total Ticks: $tickCount');
+  log('Total Volume: $totalVolume');
+  log('Max Price: \$${maxPrice.toStringAsFixed(2)}');
+  log('Read time taken: ${readWatch.elapsedMilliseconds}ms');
 
   // --- 3. Cleanup ---
   if (file.existsSync()) {
     await file.delete();
-    _log('\nTemporary file deleted.');
+    log('\nTemporary file deleted.');
   }
 
   watch.stop();
-  _log('Total time taken: ${watch.elapsedMilliseconds}ms');
+  log('Total time taken: ${watch.elapsedMilliseconds}ms');
 }
 
-void _log([Object? object = '']) => stdout.writeln(object);
+void log([Object? object = '']) => stdout.writeln(object);

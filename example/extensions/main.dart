@@ -1,6 +1,6 @@
 // Disable warnings for print statements in this example
-// ignore_for_file: avoid_print
 
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:pro_mpack/pro_mpack.dart';
@@ -80,12 +80,12 @@ final mp = MessagePack(
 void main() {
   final users = generateUsers(100).toList();
   final bytes = mp.pack(users);
-  print('Serialized ${bytes.length} bytes');
+  stdout.writeln('Serialized ${bytes.length} bytes');
 
   final decodedUsers = mp.unpack<List<dynamic>>(bytes).cast<User>();
 
-  print('Original users: ${users.length}');
-  print('Decoded users: ${decodedUsers.length}');
+  log('Original users: ${users.length}');
+  log('Decoded users: ${decodedUsers.length}');
 }
 
 Iterable<User> generateUsers(int count) sync* {
@@ -190,3 +190,5 @@ Uint8List bigIntToBytes(BigInt number) {
 
 BigInt bytesToBigInt(Uint8List bytes) =>
     bytes.fold(.zero, (result, byte) => (result << 8) | .from(byte));
+
+void log([Object? object = '']) => stdout.writeln(object);

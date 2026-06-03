@@ -6,8 +6,8 @@ import 'package:pro_mpack/pro_mpack.dart';
 import 'models.dart';
 
 void main() async {
-  _log('Advanced Streaming Example (pro_mpack)');
-  _log('Simulating a fragmented network stream using MessagePack...\n');
+  log('Advanced Streaming Example (pro_mpack)');
+  log('Simulating a fragmented network stream using MessagePack...\n');
 
   // 1. Set up MessagePack with our IoT Extensions
   final mp = MessagePack();
@@ -51,17 +51,17 @@ void main() async {
   // Listen for parsed packets
   final subscription = telemetryStream.listen((dynamic parsedObject) {
     if (parsedObject is TelemetryPacket) {
-      _log('✅ Received: $parsedObject');
+      log('✅ Received: $parsedObject');
       for (final reading in parsedObject.readings) {
-        _log('   -> $reading');
+        log('   -> $reading');
       }
     } else {
-      _log('⚠️ Received unknown object: $parsedObject');
+      log('⚠️ Received unknown object: $parsedObject');
     }
   });
 
   // 5. Simulate harsh network fragmentation (sending 5 bytes at a time)
-  _log('Streaming ${allBytes.length} bytes in 5-byte chunks...');
+  log('Streaming ${allBytes.length} bytes in 5-byte chunks...');
   const chunkSize = 5;
 
   for (var i = 0; i < allBytes.length; i += chunkSize) {
@@ -70,7 +70,7 @@ void main() async {
         : allBytes.length;
     final chunk = allBytes.sublist(i, end);
 
-    _log('   [$i] Sending chunk: ${chunk.length} bytes');
+    log('   [$i] Sending chunk: ${chunk.length} bytes');
     controller.add(chunk);
 
     // Small delay to simulate network latency
@@ -81,7 +81,7 @@ void main() async {
   await subscription.asFuture<void>();
   await subscription.cancel();
 
-  _log('\nStream closed. All nested IoT packets reconstructed successfully.');
+  log('\nStream closed. All nested IoT packets reconstructed successfully.');
 }
 
-void _log([Object? object = '']) => stdout.writeln(object);
+void log([Object? object = '']) => stdout.writeln(object);

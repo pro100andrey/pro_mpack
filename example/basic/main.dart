@@ -11,7 +11,7 @@ class Token {
 }
 
 void main() {
-  _log('--- Basic pro_mpack Example ---');
+  log('--- Basic pro_mpack Example ---');
 
   // 1. Serialize standard types
   final data = {
@@ -21,18 +21,18 @@ void main() {
     'tags': ['fast', 'cross-platform', 'typesafe'],
   };
 
-  _log('\nOriginal Data:');
-  _log(data);
+  log('\nOriginal Data:');
+  log(data);
 
   // Serialize to MessagePack binary format
   final bytes = serialize(data);
-  _log('\nSerialized Bytes (length: ${bytes.length}):');
-  _log(bytes);
+  log('\nSerialized Bytes (length: ${bytes.length}):');
+  log(bytes);
 
   // Deserialize back to Dart objects
   final decoded = deserialize(bytes);
-  _log('\nDecoded Data:');
-  _log(decoded);
+  log('\nDecoded Data:');
+  log(decoded);
 
   // 2. High-performance caching with MessagePack instance
   // For repetitive parsing, it is recommended to create a reusable instance.
@@ -42,8 +42,8 @@ void main() {
   final packedBytes = mp.pack(anotherData);
   final unpackedData = mp.unpack<List<dynamic>>(packedBytes).cast<int>();
 
-  _log('\nUnpacked with reusable instance:');
-  _log(unpackedData);
+  log('\nUnpacked with reusable instance:');
+  log(unpackedData);
 
   // 3. Quick Custom Extensions with Top-Level Functions
   // You can pass encodeExt and decodeExt directly to serialize/deserialize
@@ -72,8 +72,8 @@ void main() {
     },
   );
 
-  _log('\nOne-off Extension Serialization (ExtType 99):');
-  _log(decodedToken);
+  log('\nOne-off Extension Serialization (ExtType 99):');
+  log(decodedToken);
 }
 
-void _log([Object? object = '']) => stdout.writeln(object);
+void log([Object? object = '']) => stdout.writeln(object);
