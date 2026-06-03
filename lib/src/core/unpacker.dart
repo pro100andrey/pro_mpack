@@ -121,6 +121,9 @@ extension type Unpacker._(_UnpackerState _st) {
   @pragma('vm:prefer-inline')
   List<dynamic>? unpackArray() => _readNullable(_unpackArray);
 
+  /// Unpacks the next value as an array of a specific type [T].
+  List<T> unpackArrayOf<T>() => unpackArray()!.cast<T>();
+
   /// Unpacks the next value as a [Map].
   ///
   /// Returns `null` if the value is a MessagePack nil byte.

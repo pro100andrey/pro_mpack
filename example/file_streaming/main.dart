@@ -1,0 +1,150 @@
+import 'dart:io';
+import 'dart:math';
+
+import 'package:pro_mpack/pro_mpack.dart';
+
+// Real-world file structure:
+// 1. Magic Bytes: [0x4D, 0x4B, 0x54, 0x31] ("MKT1") - 4 bytes
+// 2. Version: 1 byte (e.g., 0x01)
+// 3. Metadata: MessagePack Map containing exchange, symbol, etc.
+// 4. Data Stream: Continuous MessagePack arrays
+//  [timestamp, price, volume, isBuy]
+
+void main() async {
+  final watch = Stopwatch()..start();
+  const fileName = 'market_history_mpack.bin';
+  const totalTicks = 500000;
+
+  _log('- File Streaming Example: Real-world File Structure (pro_mpack) -');
+
+  // --- 1. Generation Phase ---
+  _log('\nGenerating $totalTicks ticks into "$fileName"...');
+
+  final file = File(fileName);
+  final ios = file.openWrite();
+
+  final random = Random(42);
+  var lastPrice = 50000.0;
+  final writeWatch = Stopwatch()..start();
+
+  // Write custom file header (Magic Bytes + Version)
+  ios.add([0x4D, 0x4B, 0x54, 0x31, 0x01]); // "MKT1" + v1
+
+  final packer = Packer(initialBufferSize: 64)
+    // Pack file metadata as the first MessagePack object
+    ..packMap({
+      'exchange': 'Binance',
+      'symbol': 'BTC/USDT',
+      'precision': 2,
+      'generated_at': DateTime.now().millisecondsSinceEpoch,
+    });
+
+  ios.add(packer.takeBytes());
+
+  final packerStream = Packer(initialBufferSize: 65536);
+
+  // Write streaming data
+  for (var i = 0; i < totalTicks; i++) {
+    lastPrice += (random.nextDouble() - 0.5) * 10;
+    
+    packerStream.packArray([
+      DateTime.now().millisecondsSinceEpoch,
+      lastPrice,
+      random.nextInt(100) + 1,
+      random.nextBool(),
+    ]);
+
+    // Batch writes to avoid ios.add overhead (approx 64k at a time)
+    if (packerStream.bytesWritten >= 64000) {
+      ios.add(packerStream.takeBytes(dispose: false)); 
+    }
+  }
+  
+  // Flush remaining and dispose
+  if (packerStream.bytesWritten > 0) {
+    ios.add(packerStream.takeBytes());
+  }
+
+  writeWatch.stop();
+  await ios.close();
+
+  _log(
+    'File generated. Size: '
+    '${(file.lengthSync() / 1024 / 1024).toStringAsFixed(2)} MB, '
+    'time: ${writeWatch.elapsedMilliseconds} ms',
+  );
+
+  // --- 2. Parsing Phase ---
+  _log('\nReading and parsing file incrementally...');
+
+  var tickCount = 0;
+  var totalVolume = 0;
+  var maxPrice = 0.0;
+  final readWatch = Stopwatch()..start();
+  final mp = MessagePack();
+
+  // Read the first bytes to validate our custom header
+  final headerFile = await file.open();
+  final magicAndVersion = await headerFile.read(5);
+
+  if (magicAndVersion case [0x4D, 0x4B, 0x54, 0x31, final version]) {
+    _log('✅ Magic bytes matched (MKT). Version: $version');
+  } else {
+    _log('❌ Invalid Magic Bytes!');
+    return;
+  }
+
+  // To stream the rest of the file seamlessly, we create a stream from the
+  // remaining bytes. We skip the first 5 bytes we just read.
+  await headerFile.close();
+  final byteStream = file.openRead(5);
+
+  // Pipe the remaining bytes into the zero-allocation streamDecoder
+  final tickStream = byteStream.transform(mp.streamDecoder);
+
+  var isFirstObject = true;
+
+  await for (final dynamic data in tickStream) {
+    if (isFirstObject) {
+      // The first MessagePack object in our structure is the metadata Map
+      _log('📄 File Metadata: $data');
+      isFirstObject = false;
+      continue;
+    }
+
+    // Subsequent objects are our arrays: [timestamp, price, volume, isBuy]
+    if (data is List) {
+      final price = (data[1] as num).toDouble();
+      final volume = data[2] as int;
+
+      tickCount++;
+      totalVolume += volume;
+      if (price > maxPrice) {
+        maxPrice = price;
+      }
+
+      if (tickCount % 50000 == 0) {
+        _log('   Processed $tickCount ticks...');
+      }
+    }
+  }
+
+  readWatch.stop();
+
+  _log('\n✅ Parsing complete!');
+  _log('Total Ticks: $tickCount');
+  _log('Total Volume: $totalVolume');
+  _log('Max Price: \$${maxPrice.toStringAsFixed(2)}');
+  _log('Read time taken: ${readWatch.elapsedMilliseconds}ms');
+
+  // --- 3. Cleanup ---
+  if (file.existsSync()) {
+    await file.delete();
+    _log('\nTemporary file deleted.');
+  }
+
+  watch.stop();
+  _log('Total time taken: ${watch.elapsedMilliseconds}ms');
+}
+
+void _log([Object? object = '']) => stdout.writeln(object);

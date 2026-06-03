@@ -81,6 +81,10 @@ extension type Packer._(_PackerState _st) {
   @pragma('vm:prefer-inline')
   EncodeExt? get _ext => _st.encodeExt as EncodeExt?;
 
+  /// The number of bytes currently written to the internal buffer.
+  @pragma('vm:prefer-inline')
+  int get bytesWritten => _wr.bytesWritten;
+
   /// Packs a boolean [value].
   @pragma('vm:prefer-inline')
   void packBool(bool? value) => value == null ? packNull() : _packBool(value);
@@ -568,14 +572,23 @@ extension type Packer._(_PackerState _st) {
   /// Returns the serialized bytes and releases the internal buffer back to the
   /// pool.
   ///
-  /// **Warning:** After calling this method, the [Packer] instance is disposed
-  /// and cannot be used again.
+  /// * [copy]: If `true` (default), returns a copy of the bytes, allowing the
+  ///   internal buffer to be safely reused or returned to the pool. If `false`,
+  ///   returns a direct view of the buffer, which avoids allocation but is only
+  ///   valid until the buffer is modified or released.
+  /// * [dispose]: If `true` (default), the internal buffer is returned to the
+  ///   pool, and this [Packer] instance is disposed and cannot be used again.
+  ///   Set to `false` to keep writing to the same packer
+  ///  (useful for streaming).
   @pragma('vm:prefer-inline')
-  Uint8List takeBytes() {
+  Uint8List takeBytes({bool copy = true, bool dispose = true}) {
     try {
-      return _wr.takeBytes(copy: true);
+      final result = _wr.takeBytes(copy: copy);
+      return result;
     } finally {
-      BinaryWriterPool.release(_wr);
+      if (dispose) {
+        BinaryWriterPool.release(_wr);
+      }
     }
   }
 
