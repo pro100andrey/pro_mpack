@@ -46,7 +46,7 @@ void main() async {
   // Write streaming data
   for (var i = 0; i < totalTicks; i++) {
     lastPrice += (random.nextDouble() - 0.5) * 10;
-    
+
     packerStream.packArray([
       DateTime.now().millisecondsSinceEpoch,
       lastPrice,
@@ -56,10 +56,10 @@ void main() async {
 
     // Batch writes to avoid ios.add overhead (approx 64k at a time)
     if (packerStream.bytesWritten >= 64000) {
-      ios.add(packerStream.takeBytes(dispose: false)); 
+      ios.add(packerStream.takeBytes(dispose: false));
     }
   }
-  
+
   // Flush remaining and dispose
   if (packerStream.bytesWritten > 0) {
     ios.add(packerStream.takeBytes());

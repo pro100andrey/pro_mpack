@@ -9,7 +9,7 @@ void main() {
     'name': 'Dart',
     'version': 3.5,
     'isAwesome': true,
-    'tags': ['fast', 'cross-platform', 'typesafe']
+    'tags': ['fast', 'cross-platform', 'typesafe'],
   };
 
   _log('\nOriginal Data:');
@@ -28,7 +28,7 @@ void main() {
   // 2. High-performance caching with MessagePack instance
   // For repetitive parsing, it is recommended to create a reusable instance.
   final mp = MessagePack();
-  
+
   final anotherData = [100, 200, 300, 400];
   final packedBytes = mp.pack(anotherData);
   final unpackedData = mp.unpack<List<dynamic>>(packedBytes).cast<int>();
