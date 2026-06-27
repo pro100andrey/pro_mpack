@@ -171,6 +171,45 @@ class MessagePack extends Codec<dynamic, Uint8List> {
   @pragma('vm:prefer-inline')
   T unpack<T>(Uint8List data) =>
       Unpacker(buffer: data, decodeExt: _registry.decodeExt).unpack() as T;
+
+  /// Encodes a sequence of [values] into a single MessagePack buffer.
+  ///
+  /// The values are concatenated without a top-level array, mirroring the
+  /// top-level `serializeAll` but resolving custom types through this codec's
+  /// registered extensions. The bytes are identical to calling [pack] on each
+  /// value and concatenating the results.
+  @pragma('vm:prefer-inline')
+  Uint8List packAll(Iterable<dynamic> values) {
+    final s = Packer(
+      encodeExt: _registry.encodeExt,
+      initialBufferSize: bufferSize,
+    );
+    try {
+      for (final value in values) {
+        s.pack(value);
+      }
+      return s.takeBytes();
+    } finally {
+      s.dispose();
+    }
+  }
+
+  /// Decodes every MessagePack value in [data] into a list.
+  ///
+  /// Mirrors the top-level `deserializeAll` but resolves custom extension types
+  /// through this codec's registered extensions. Useful for buffers produced by
+  /// [packAll].
+  @pragma('vm:prefer-inline')
+  List<dynamic> unpackAll(Uint8List data) {
+    final u = Unpacker(buffer: data, decodeExt: _registry.decodeExt);
+    final result = <dynamic>[];
+
+    while (u.hasBytesAvailable) {
+      result.add(u.unpack());
+    }
+
+    return result;
+  }
 }
 
 // Codec adapters

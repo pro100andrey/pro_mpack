@@ -80,10 +80,31 @@ void main() {
     });
 
     test('packAll/unpackAll', () {
-      // final mpack = MessagePack();
-      // final values = [1, 'two', 3.0];
-      // final bytes = mpack.packAll(values);
-      // expect(mpack.unpackAll(bytes), values);
+      final mpack = MessagePack();
+      final values = [1, 'two', 3.0];
+      final bytes = mpack.packAll(values);
+      expect(mpack.unpackAll(bytes), values);
+    });
+
+    test('packAll is byte-identical to serializeAll', () {
+      final mpack = MessagePack();
+      final values = [1, 'two', 3.0, null, true];
+      expect(mpack.packAll(values), serializeAll(values));
+    });
+
+    test('packAll/unpackAll round-trips registered custom types', () {
+      MessagePack newCodec() => MessagePack(
+        extensions: (mp) => mp.register<BigInt>(
+          extId: 1,
+          polymorphic: true,
+          encoder: (v, p) => p.packString(v.toString()),
+          decoder: (u, l) => BigInt.parse(u.unpackString()!),
+        ),
+      );
+
+      final values = [BigInt.from(7), 'x', BigInt.parse('123456789012345')];
+      final bytes = newCodec().packAll(values);
+      expect(newCodec().unpackAll(bytes), values);
     });
 
     test('subId >= 128 (varInt)', () {
