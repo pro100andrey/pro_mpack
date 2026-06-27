@@ -7,9 +7,10 @@ issues, PRDs, tests, and code comments; avoid the listed synonyms.
 
 - **Wire-format grammar** — the mapping from a MessagePack header byte to "which
   type, and how many length bytes / sub-elements follow". The deepest knowledge in
-  the package. Lives (post-3.1) in one shared monomorphic `const` table consulted by
-  both readers. _Avoid_: "parser rules", "format spec" (the spec is the external
-  document; the grammar is our in-code table).
+  the package. Lives (post-3.1) in one shared monomorphic lookup table (`mpShapes`,
+  built once at load) consulted by both skip-walkers. _Avoid_: "parser rules",
+  "format spec" (the spec is the external document; the grammar is our in-code
+  table).
 
 - **Packer** — the low-level MessagePack serializer (`extension type` over a
   `BinaryWriter`). Encodes Dart objects to bytes via typed `packX` methods plus the
@@ -29,11 +30,12 @@ issues, PRDs, tests, and code comments; avoid the listed synonyms.
   non-built-in type is encoded/decoded. The single place custom types cross into the
   `Packer`/`Unpacker`.
 
-- **Extension registry** — `_ExtensionRegistry`, the internal module owning type→
+- **Extension registry** — `ExtensionRegistry`, the internal module owning type→
   encoder and extId→decoder resolution: the 4-layer encode cache (inline cache, flat
   map, negative cache, polymorphic fallback memoization), group routing, and cache
   invalidation on overwrite. Exposed to `Packer`/`Unpacker` only as the bound
-  `EncodeExt`/`DecodeExt` callbacks. _Avoid_: "extension manager", "type map".
+  `EncodeExt`/`DecodeExt` callbacks. Public-named (so it is directly testable) but
+  not exported from `pro_mpack.dart`. _Avoid_: "extension manager", "type map".
 
 - **Internal extension record** — `_Ext`, the erased record holding an extension's
   id, optional subId, `canHandle`, `encode`, `decode`. Built by one factory inside the

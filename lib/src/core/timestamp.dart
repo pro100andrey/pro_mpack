@@ -1,5 +1,8 @@
-/// The MessagePack Timestamp extension (`extType -1`) — one home for both
-/// directions.
+/// The Timestamp codec — the MessagePack Timestamp extension (`extType -1`),
+/// one home for both directions.
+///
+/// Public-named so the core can dispatch to it, but not exported from
+/// `pro_mpack.dart`; it is not part of the public API.
 ///
 /// This is the single built-in extension. Unlike user extensions it is
 /// dispatched directly by the core `Packer`/`Unpacker` (and therefore by

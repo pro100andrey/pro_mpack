@@ -51,19 +51,11 @@ Uint8List serialize(
   Object? value, {
   EncodeExt? encodeExt,
   int initialBufferSize = 1024,
-}) {
-  final packer = Packer(
-    encodeExt: encodeExt,
-    initialBufferSize: initialBufferSize,
-  );
-
-  try {
-    packer.pack(value);
-    return packer.takeBytes();
-  } finally {
-    packer.dispose();
-  }
-}
+}) => Packer.encode(
+  value,
+  encodeExt: encodeExt,
+  initialBufferSize: initialBufferSize,
+);
 
 /// Serializes a sequence of [values] into a single MessagePack buffer.
 ///
@@ -78,21 +70,11 @@ Uint8List serializeAll(
   Iterable<dynamic> values, {
   EncodeExt? encodeExt,
   int initialBufferSize = 1024,
-}) {
-  final packer = Packer(
-    encodeExt: encodeExt,
-    initialBufferSize: initialBufferSize,
-  );
-
-  try {
-    for (final value in values) {
-      packer.pack(value);
-    }
-    return packer.takeBytes();
-  } finally {
-    packer.dispose();
-  }
-}
+}) => Packer.encodeAll(
+  values,
+  encodeExt: encodeExt,
+  initialBufferSize: initialBufferSize,
+);
 
 /// Deserializes a single value from a MessagePack [buffer].
 ///

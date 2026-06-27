@@ -10,6 +10,10 @@
 /// The materializing `Unpacker.unpack()` keeps its own hot-path switch: it is
 /// the performance-critical decode path and is not a skip-walk, so it is
 /// deliberately not routed through this table.
+///
+/// `MpShape`, `mpShapes`, and `mpFixedSkip` are public-named so both readers
+/// can consult the table, but they are not exported from `pro_mpack.dart` and
+/// are not part of the public API.
 library;
 
 import 'constants.dart';

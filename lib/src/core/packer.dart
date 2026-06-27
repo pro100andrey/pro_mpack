@@ -95,6 +95,52 @@ extension type Packer._(_PackerState _st) {
         encodeExt: encodeExt,
       );
 
+  /// Encodes a single [value] to bytes, owning the full pool lifecycle.
+  ///
+  /// Acquires a [Packer], packs [value], returns its bytes, and always releases
+  /// the buffer back to the pool — even on error. Use this instead of the
+  /// acquire/`takeBytes`/`finally dispose` dance by hand.
+  @pragma('vm:prefer-inline')
+  static Uint8List encode(
+    dynamic value, {
+    EncodeExt? encodeExt,
+    int initialBufferSize = 1024,
+  }) {
+    final p = Packer(
+      encodeExt: encodeExt,
+      initialBufferSize: initialBufferSize,
+    );
+    try {
+      p.pack(value);
+      return p.takeBytes();
+    } finally {
+      p.dispose();
+    }
+  }
+
+  /// Encodes a sequence of [values] into one buffer, owning the pool lifecycle.
+  ///
+  /// The values are concatenated with no top-level array; the buffer is always
+  /// released back to the pool, even on error.
+  static Uint8List encodeAll(
+    Iterable<dynamic> values, {
+    EncodeExt? encodeExt,
+    int initialBufferSize = 1024,
+  }) {
+    final p = Packer(
+      encodeExt: encodeExt,
+      initialBufferSize: initialBufferSize,
+    );
+    try {
+      for (final value in values) {
+        p.pack(value);
+      }
+      return p.takeBytes();
+    } finally {
+      p.dispose();
+    }
+  }
+
   /// The underlying [BinaryWriter].
   @pragma('vm:prefer-inline')
   BinaryWriter get _wr => _st.writer;
@@ -493,11 +539,11 @@ extension type Packer._(_PackerState _st) {
 
     final length = _wr.bytesWritten - startPos - maxHeaderSize;
 
-    final (headerSize, marker) = switch (length) {
-      <= 31 => (1, fFixStrPrefix | length),
-      <= limitUint8 => (2, fStr8),
-      <= limitUint16 => (3, fStr16),
-      <= limitUint32 => (5, fStr32),
+    final (marker, headerSize) = switch (length) {
+      <= 31 => (fFixStrPrefix | length, 1),
+      <= limitUint8 => (fStr8, 2),
+      <= limitUint16 => (fStr16, 3),
+      <= limitUint32 => (fStr32, 5),
       _ => throw const MessagePackSizeException(
         'String is too long to be serialized with MessagePack.',
         'Ensure string byte length does not exceed 4,294,967,295 bytes.',

@@ -154,18 +154,11 @@ class MessagePack extends Codec<dynamic, Uint8List> {
 
   /// Encodes [value] into MessagePack bytes.
   @pragma('vm:prefer-inline')
-  Uint8List pack(dynamic value) {
-    final s = Packer(
-      encodeExt: _registry.encodeExt,
-      initialBufferSize: bufferSize,
-    );
-    try {
-      s.pack(value);
-      return s.takeBytes();
-    } finally {
-      s.dispose();
-    }
-  }
+  Uint8List pack(dynamic value) => Packer.encode(
+    value,
+    encodeExt: _registry.encodeExt,
+    initialBufferSize: bufferSize,
+  );
 
   /// Decodes a single value of type [T] from [data].
   @pragma('vm:prefer-inline')
@@ -179,20 +172,11 @@ class MessagePack extends Codec<dynamic, Uint8List> {
   /// registered extensions. The bytes are identical to calling [pack] on each
   /// value and concatenating the results.
   @pragma('vm:prefer-inline')
-  Uint8List packAll(Iterable<dynamic> values) {
-    final s = Packer(
-      encodeExt: _registry.encodeExt,
-      initialBufferSize: bufferSize,
-    );
-    try {
-      for (final value in values) {
-        s.pack(value);
-      }
-      return s.takeBytes();
-    } finally {
-      s.dispose();
-    }
-  }
+  Uint8List packAll(Iterable<dynamic> values) => Packer.encodeAll(
+    values,
+    encodeExt: _registry.encodeExt,
+    initialBufferSize: bufferSize,
+  );
 
   /// Decodes every MessagePack value in [data] into a list.
   ///
