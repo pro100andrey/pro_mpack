@@ -132,6 +132,13 @@ extension type Unpacker._(_UnpackerState _st) {
   @pragma('vm:prefer-inline')
   Map<dynamic, dynamic>? unpackMap() => _readNullable(_unpackMap);
 
+  /// Unpacks the next value as a map with keys of type [K] and values of type
+  /// [V].
+  ///
+  /// Throws if the value is a MessagePack nil byte; for a nullable map use
+  /// [unpackMap] and cast yourself.
+  Map<K, V> unpackMapOf<K, V>() => unpackMap()!.cast<K, V>();
+
   /// Reads only the next array header and returns its element count.
   ///
   /// The caller must then read exactly that many values with the typed unpack

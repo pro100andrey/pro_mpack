@@ -139,4 +139,19 @@ void main() {
       expect(u.skip, throwsA(isA<MessagePackFormatException>()));
     });
   });
+
+  group('Unpacker.unpackMapOf<K, V>', () {
+    test('returns a typed map with the same entries as unpackMap', () {
+      const map = {'a': 1, 'b': 2, 'c': 3};
+      final out = Unpacker(buffer: serialize(map)).unpackMapOf<String, int>();
+
+      expect(out, isA<Map<String, int>>());
+      expect(out, map);
+    });
+
+    test('throws on a nil map (non-nullable, like unpackArrayOf)', () {
+      final u = Unpacker(buffer: serialize(null));
+      expect(u.unpackMapOf<String, int>, throwsA(anything));
+    });
+  });
 }
