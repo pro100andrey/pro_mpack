@@ -469,34 +469,60 @@ extension type Packer._(_PackerState _st) {
 
   /// Packs a [String] [value] using UTF-8 encoding.
   ///
+  /// Encodes the body in a single UTF-8 pass: it reserves the maximum string
+  /// header, writes the body once (so the string is never scanned twice — once
+  /// to size and once to write), then backpatches the smallest valid header and
+  /// shifts the body left over the unused reserve. Same Reserve & Backpatch
+  /// pattern as [packExt]; output is byte-identical to the two-pass form.
+  ///
   /// Throws [MessagePackSizeException] if byte length exceeds [limitUint32].
   @pragma('vm:prefer-inline')
   void _packString(String value) {
-    final length = getUtf8Length(value);
-
-    switch (length) {
-      case <= 31:
-        _wr.writeUint8(fFixStrPrefix | length);
-      case <= limitUint8:
-        _wr
-          ..writeUint8(fStr8)
-          ..writeUint8(length);
-      case <= limitUint16:
-        _wr
-          ..writeUint8(fStr16)
-          ..writeUint16(length);
-      case <= limitUint32:
-        _wr
-          ..writeUint8(fStr32)
-          ..writeUint32(length);
-      default:
-        throw const MessagePackSizeException(
-          'String is too long to be serialized with MessagePack.',
-          'Ensure string byte length does not exceed 4,294,967,295 bytes.',
-        );
+    // Empty string short-circuits the reserve/shift: the trailing-block shift
+    // can't reclaim reserved space when the body is zero-length.
+    if (value.isEmpty) {
+      _wr.writeUint8(fFixStrPrefix);
+      return;
     }
 
-    _wr.writeString(value);
+    const maxHeaderSize = 5; // str32: 1 marker + 4 length bytes
+
+    final startPos = _wr.reserve(maxHeaderSize);
+
+    _wr.writeString(value); // single UTF-8 pass
+
+    final length = _wr.bytesWritten - startPos - maxHeaderSize;
+
+    final (headerSize, marker) = switch (length) {
+      <= 31 => (1, fFixStrPrefix | length),
+      <= limitUint8 => (2, fStr8),
+      <= limitUint16 => (3, fStr16),
+      <= limitUint32 => (5, fStr32),
+      _ => throw const MessagePackSizeException(
+        'String is too long to be serialized with MessagePack.',
+        'Ensure string byte length does not exceed 4,294,967,295 bytes.',
+      ),
+    };
+
+    if (headerSize < maxHeaderSize) {
+      _wr.shiftBytes(
+        startPos + maxHeaderSize,
+        _wr.bytesWritten,
+        startPos + headerSize,
+      );
+    }
+
+    _wr.setUint8(startPos, marker);
+
+    switch (headerSize) {
+      case 2:
+        _wr.setUint8(startPos + 1, length);
+      case 3:
+        _wr.setUint16(startPos + 1, length);
+      case 5:
+        _wr.setUint32(startPos + 1, length);
+      // headerSize 1 → fixstr, marker already encodes the length
+    }
   }
 
   /// Packs a binary [value].
