@@ -1,3 +1,11 @@
+// Basic usage — the core encode/decode API.
+//
+// Walks through serializing standard types and collections with the top-level
+// `serialize`/`deserialize` functions, a reusable [MessagePack] instance for
+// repeated work, and one-off custom extensions via `encodeExt`/`decodeExt`.
+//
+// Run: `dart run example/basic/main.dart`
+
 import 'dart:io';
 
 import 'package:pro_mpack/pro_mpack.dart';

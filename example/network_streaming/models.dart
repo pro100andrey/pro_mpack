@@ -1,3 +1,10 @@
+// Models and extension registration for the network streaming example.
+//
+// `SensorData` and `TelemetryPacket` are registered as standalone extensions;
+// a packet packs its readings with `packArray`, so nested `SensorData` values
+// (and `null`s) are encoded automatically and decoded with
+// `unpackArrayOf<SensorData?>()`.
+
 import 'package:pro_mpack/pro_mpack.dart';
 
 class SensorData {

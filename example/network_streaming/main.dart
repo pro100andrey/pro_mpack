@@ -1,3 +1,13 @@
+// Network streaming — reconstructing messages from a fragmented byte stream.
+//
+// Simulates an IoT/telemetry protocol: nested `TelemetryPacket`/`SensorData`
+// models are registered as extensions, serialized back-to-back (MessagePack
+// is self-framing), then fed through `streamDecoder` in 5-byte chunks to prove
+// the zero-allocation transformer reassembles whole objects across chunk
+// boundaries.
+//
+// Run: `dart run example/network_streaming/main.dart`
+
 import 'dart:async';
 import 'dart:io';
 

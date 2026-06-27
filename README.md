@@ -20,6 +20,7 @@ MessagePack is an efficient binary serialization format that's smaller and faste
     - [2. Sub-registries (Extension Groups)](#2-sub-registries-extension-groups)
     - [3. Zero-Allocation Streaming (Async Data)](#3-zero-allocation-streaming-async-data)
     - [4. Big Data File Streaming (Batched Writes)](#4-big-data-file-streaming-batched-writes)
+    - [5. Field-by-Field Codecs (Schema / Codegen)](#5-field-by-field-codecs-schema--codegen)
   - [Examples](#examples)
   - [API Overview](#api-overview)
   - [Error Handling](#error-handling)
@@ -27,8 +28,9 @@ MessagePack is an efficient binary serialization format that's smaller and faste
 
 ## Key Features
 
-- **Extreme Performance:** Built on top of `pro_binary`. Uses `BinaryWriterPool` for zero-allocation high-frequency serialization.
+- **Extreme Performance:** Built on top of `pro_binary`. Uses `BinaryWriterPool` for zero-allocation high-frequency serialization, and encodes UTF-8 strings in a single pass.
 - **Zero-Allocation Streaming:** Includes `MessagePackStreamTransformer` which seamlessly reassembles heavily fragmented network/file chunks byte-by-byte without allocating temporary garbage objects.
+- **Incremental (Field-by-Field) Codecs:** Low-level `packMapLength`/`packArrayLength`, `unpackMapLength`/`unpackArrayLength`, and `Unpacker.skip()` let schema-driven code generators encode and decode structs one field at a time with the typed packers — no intermediate `Map`/`List` is built, and unknown fields are skipped for forward compatibility.
 - **Seamless Extensions:** Powerful Declarative and Imperative API for custom types.
 - **Extension Groups:** Bypass the strict 256-ID limit of MessagePack by grouping related sub-types logically under a single Extension ID.
 - **Modern Dart 3:** Strict typing, `sealed` exception hierarchy with actionable suggestions, exhaustive pattern matching support.
@@ -200,12 +202,45 @@ await for (final tick in tickStream) {
 }
 ```
 
+### 5. Field-by-Field Codecs (Schema / Codegen)
+
+When the shape of a struct is known statically (e.g. a code generator emitting a codec per class), you can frame a map or array and stream its entries with the **typed** packers — without building an intermediate `Map`/`List` and without re-dispatching every value through the generic `pack()`. `Unpacker.skip()` drops unknown fields, so old readers stay compatible with newer writers.
+
+```dart
+// Encode a struct as `{ fieldId: value }` — no intermediate Map allocated.
+void encode(Sensor s, Packer p) {
+  p
+    ..packMapLength(3)        // exactly three fields follow
+    ..packInt(1)..packInt(s.id)
+    ..packInt(2)..packString(s.label)
+    ..packInt(3)..packBool(s.calibrated);
+}
+
+// Decode field-by-field; skip ids this version doesn't know.
+Sensor decode(Unpacker u) {
+  var id = 0; var label = ''; var calibrated = false;
+  final fields = u.unpackMapLength();
+  for (var i = 0; i < fields; i++) {
+    switch (u.unpackInt()) {
+      case 1: id = u.unpackInt()!;
+      case 2: label = u.unpackString()!;
+      case 3: calibrated = u.unpackBool()!;
+      default: u.skip();      // unknown field → forward compatible
+    }
+  }
+  return Sensor(id: id, label: label, calibrated: calibrated);
+}
+```
+
+For batch protocols, `serializeAll`/`deserializeAll` (top-level) and `MessagePack.packAll`/`unpackAll` (registry-aware) concatenate multiple values into one buffer. Decode typed collections directly with `unpackArrayOf<T>()` and `unpackMapOf<K, V>()`.
+
 ## Examples
 
 Explore the [example](example/) directory for complete, runnable architectures:
 
 - [Basic Usage](example/basic/): Standard serialization, Maps, Lists, and reusable instances.
 - [Extensions in Depth](example/extensions/): Complex polymorphic types (`BigInt`), nested groups (`User`, `Address`), and type-safe decoding (`unpackArrayOf<T>`).
+- [Incremental Codecs](example/incremental/): Field-by-field struct encoding with `packMapLength`/`unpackMapLength`, forward-compatible `skip()`, and typed `unpackMapOf<K, V>`.
 - [Advanced Network Streaming](example/network_streaming/): A simulated IoT Telemetry protocol handling extreme network fragmentation.
 - [File Streaming (Big Data)](example/file_streaming/): Real-world massive binary data structures with custom Headers, Magic Bytes, and batch writing.
 
@@ -216,10 +251,10 @@ For complete and detailed API documentation, visit the [official pub.dev API ref
 | Component | Description |
 | --------- | ----------- |
 | **`MessagePack`** | The main codec instance. Maintains a fast `O(1)` cache of all registered extensions and serializers. |
-| **`Packer`** | The low-level zero-allocation encoder. Borrows memory from `BinaryWriterPool` to write data rapidly. |
-| **`Unpacker`** | The low-level decoder for reading primitive structures directly from a payload. |
+| **`Packer`** | The low-level zero-allocation encoder. Borrows memory from `BinaryWriterPool` to write data rapidly. Includes `packMapLength`/`packArrayLength` for framing collections, and `Packer.encode`/`encodeAll` helpers. |
+| **`Unpacker`** | The low-level decoder. Reads primitive structures directly, frames collections with `unpackMapLength`/`unpackArrayLength`, decodes typed collections via `unpackArrayOf<T>`/`unpackMapOf<K, V>`, and drops unknown values with `skip()`. |
 | **`streamDecoder`** | A zero-allocation `StreamTransformer` that pieces together fragmented chunks of `MessagePack` data. |
-| **`serialize`/`deserialize`** | Top-level global functions for one-off convenience parsing. |
+| **`serialize`/`deserialize`** | Top-level global functions for one-off convenience parsing. `serializeAll`/`deserializeAll` (and `MessagePack.packAll`/`unpackAll`) handle multiple values per buffer. |
 
 ## Error Handling
 

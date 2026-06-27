@@ -20,7 +20,15 @@ A focused example on how to build and register custom extensions for complex, ne
 * **Type-Safe Collections**: Decoding nested arrays of specific models efficiently using `unpackArrayOf<T>()` and `unpackAs<T>()`.
 * **High Performance**: Using the `MessagePack` instance for optimized `O(1)` extension lookups.
 
-## 3. [Advanced Network Streaming](network_streaming/)
+## 3. [Incremental Codecs](incremental/)
+
+A focused example on the low-level field-by-field primitives added in 3.1 — the shape a schema-driven code generator emits:
+
+* **Field-by-Field Encoding**: Framing a struct as `{ fieldId: value }` with `packMapLength`/`packArrayLength` and the typed packers — no intermediate `Map`/`List` is allocated.
+* **Forward Compatibility**: An old reader decoding a newer payload, dropping unknown fields with `Unpacker.skip()`.
+* **Typed Decoding**: Reading a map directly into `Map<K, V>` via `unpackMapOf<K, V>()`.
+
+## 4. [Advanced Network Streaming](network_streaming/)
 
 A multi-file architectural example simulating a real-world IoT/Telemetry protocol:
 
@@ -28,7 +36,7 @@ A multi-file architectural example simulating a real-world IoT/Telemetry protoco
 * **Fragmentation Resilience**: Proving that the `streamDecoder` can reconstruct nested packets from tiny network chunks (e.g. 5 bytes at a time) without extra allocations.
 * **Zero-Allocation**: Uses `streamDecoder` to avoid GC overhead for incomplete packets.
 
-## 4. [File Streaming (Big Data)](file_streaming/)
+## 5. [File Streaming (Big Data)](file_streaming/)
 
 A high-performance example demonstrating how to process large binary files:
 
@@ -49,6 +57,9 @@ dart example/basic/main.dart
 
 # Run the extensions example
 dart example/extensions/main.dart
+
+# Run the incremental (field-by-field) codec example
+dart example/incremental/main.dart
 
 # Run the advanced telemetry simulation
 dart example/network_streaming/main.dart

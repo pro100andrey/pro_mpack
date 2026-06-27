@@ -1,4 +1,12 @@
-// Disable warnings for print statements in this example
+// Custom extensions in depth.
+//
+// Registers a polymorphic extension for an external type (`BigInt`, whose
+// hidden runtime type is `_BigIntImpl`), plus two extension groups packing
+// related models (`User`, `Address`, `Product`) under single extension IDs to
+// bypass the 256-ID limit. Decoding uses type-safe `unpackArrayOf<T>()` and
+// `unpackAs<T>()`.
+//
+// Run: `dart run example/extensions/main.dart`
 
 import 'dart:io';
 import 'dart:typed_data';
@@ -174,21 +182,24 @@ class Product {
       'Product(title: $title, description: $description, price: $price)';
 }
 
+/// Big-endian, two's-complement-free byte encoding of a non-negative [BigInt].
 Uint8List bigIntToBytes(BigInt number) {
-  if (number == .zero) {
-    return .fromList([0]);
+  if (number == BigInt.zero) {
+    return Uint8List.fromList([0]);
   }
 
   final byteLength = (number.bitLength + 7) >> 3;
-  return .fromList(
-    .generate(
-      byteLength,
-      (i) => ((number >> ((byteLength - 1 - i) * 8)) & .from(255)).toInt(),
-    ),
+  return Uint8List.fromList(
+    List<int>.generate(byteLength, (i) {
+      final shift = (byteLength - 1 - i) * 8;
+      return ((number >> shift) & BigInt.from(255)).toInt();
+    }),
   );
 }
 
-BigInt bytesToBigInt(Uint8List bytes) =>
-    bytes.fold(.zero, (result, byte) => (result << 8) | .from(byte));
+BigInt bytesToBigInt(Uint8List bytes) => bytes.fold(
+  BigInt.zero,
+  (result, byte) => (result << 8) | BigInt.from(byte),
+);
 
 void log([Object? object = '']) => stdout.writeln(object);

@@ -1,14 +1,23 @@
+// Big-data file streaming — constant-memory read/write of a large binary file.
+//
+// Writes 1,000,000 market ticks to a file with a custom header (magic bytes +
+// version) followed by a MessagePack metadata map and a continuous stream of
+// `[timestamp, price, volume, isBuy]` arrays, batching writes by reusing one
+// [Packer] (`takeBytes(dispose: false)`). It then parses the file
+// incrementally through `streamDecoder`, never loading it fully into RAM.
+//
+// On-disk layout:
+// 1. Magic bytes `[0x4D, 0x4B, 0x54, 0x31]` ("MKT1") — 4 bytes
+// 2. Version — 1 byte
+// 3. Metadata — a MessagePack map (exchange, symbol, …)
+// 4. Data — continuous MessagePack arrays `[timestamp, price, volume, isBuy]`
+//
+// Run: `dart run example/file_streaming/main.dart`
+
 import 'dart:io';
 import 'dart:math';
 
 import 'package:pro_mpack/pro_mpack.dart';
-
-// Real-world file structure:
-// 1. Magic Bytes: [0x4D, 0x4B, 0x54, 0x31] ("MKT1") - 4 bytes
-// 2. Version: 1 byte (e.g., 0x01)
-// 3. Metadata: MessagePack Map containing exchange, symbol, etc.
-// 4. Data Stream: Continuous MessagePack arrays
-//  [timestamp, price, volume, isBuy]
 
 void main() async {
   final watch = Stopwatch()..start();
