@@ -11,6 +11,7 @@ import 'package:pro_binary/pro_binary.dart';
 
 import 'constants.dart';
 import 'exception.dart';
+import 'timestamp.dart';
 
 /// Called by the [Packer] when it encounters a type it cannot natively
 /// handle.
@@ -42,6 +43,27 @@ class Float {
 
 /// Internal packer state structure for the [Packer] extension type.
 typedef _PackerState = ({BinaryWriter writer, dynamic encodeExt});
+
+/// The single ext-header format table: maps an extension payload [length] to
+/// its `(marker, headerSize)`. Consulted by both ext-write strategies — the
+/// reserve-then-shift path in `packExt` and the forward-write path in
+/// `_writeExtHeader` — so the two cannot disagree on framing.
+///
+/// `headerSize` is the total header byte count including the marker and the
+/// 1-byte type: `2` for fixext (no length field), `3`/`4`/`6` for ext8/16/32.
+/// Lengths above [limitUint16] map to ext32; callers that cannot shift handle
+/// the `> limitUint32` overflow themselves.
+@pragma('vm:prefer-inline')
+(int marker, int headerSize) _extHeaderFor(int length) => switch (length) {
+  1 => (fFixExt1, 2),
+  2 => (fFixExt2, 2),
+  4 => (fFixExt4, 2),
+  8 => (fFixExt8, 2),
+  16 => (fFixExt16, 2),
+  <= limitUint8 => (fExt8, 3),
+  <= limitUint16 => (fExt16, 4),
+  _ => (fExt32, 6),
+};
 
 /// A high-performance MessagePack serializer.
 ///
@@ -234,16 +256,7 @@ extension type Packer._(_PackerState _st) {
 
     final payloadLength = _wr.bytesWritten - startPos - maxHeaderSize;
 
-    final (headerSize, marker) = switch (payloadLength) {
-      1 => (2, fFixExt1),
-      2 => (2, fFixExt2),
-      4 => (2, fFixExt4),
-      8 => (2, fFixExt8),
-      16 => (2, fFixExt16),
-      <= limitUint8 => (3, fExt8),
-      <= limitUint16 => (4, fExt16),
-      _ => (6, fExt32),
-    };
+    final (marker, headerSize) = _extHeaderFor(payloadLength);
 
     if (headerSize < maxHeaderSize) {
       _wr.shiftBytes(
@@ -292,35 +305,25 @@ extension type Packer._(_PackerState _st) {
 
   @pragma('vm:prefer-inline')
   void _writeExtHeader(int type, int length) {
-    switch (length) {
-      case 1:
-        _wr.writeUint8(fFixExt1);
-      case 2:
-        _wr.writeUint8(fFixExt2);
+    if (length > limitUint32) {
+      throw const MessagePackSizeException(
+        'Extension payload is too large.',
+        'Ensure the encoded extension data size does not '
+            'exceed 4,294,967,295 bytes.',
+      );
+    }
+
+    final (marker, headerSize) = _extHeaderFor(length);
+
+    _wr.writeUint8(marker);
+    switch (headerSize) {
+      case 3:
+        _wr.writeUint8(length);
       case 4:
-        _wr.writeUint8(fFixExt4);
-      case 8:
-        _wr.writeUint8(fFixExt8);
-      case 16:
-        _wr.writeUint8(fFixExt16);
-      case <= limitUint8:
-        _wr
-          ..writeUint8(fExt8)
-          ..writeUint8(length);
-      case <= limitUint16:
-        _wr
-          ..writeUint8(fExt16)
-          ..writeUint16(length);
-      case <= limitUint32:
-        _wr
-          ..writeUint8(fExt32)
-          ..writeUint32(length);
-      case _:
-        throw const MessagePackSizeException(
-          'Extension payload is too large.',
-          'Ensure the encoded extension data size does not '
-              'exceed 4,294,967,295 bytes.',
-        );
+        _wr.writeUint16(length);
+      case 6:
+        _wr.writeUint32(length);
+      // headerSize 2 → fixext, no length field
     }
 
     _wr.writeInt8(type);
@@ -542,48 +545,7 @@ extension type Packer._(_PackerState _st) {
   /// based on the value's range and precision.
   @pragma('vm:prefer-inline')
   void _packTimestamp(DateTime value) {
-    final micro = (value.isUtc ? value : value.toUtc()).microsecondsSinceEpoch;
-    const million = 1_000_000;
-    final sec = (micro / million).floor();
-    final nano = ((micro % million + million) % million) * 1_000;
-
-    // 0x3FFFFFFFF is max 34-bit unsigned integer
-    if (sec >= 0 && sec <= 0x3FFFFFFFF) {
-      // Timestamp 32 — 1970..2106, no nanoseconds
-      if (nano == 0 && sec <= limitUint32) {
-        _wr
-          ..writeUint8(fFixExt4)
-          ..writeInt8(extTypeTimestamp)
-          ..writeUint32(sec);
-        return;
-      }
-
-      // Timestamp 64 — 1970..~2514, with nanoseconds.
-      //
-      // IMPORTANT: MessagePack TS64 format stores nanoseconds in the upper
-      // 30 bits and seconds in the lower 34 bits of an 8-byte unsigned integer.
-      //
-      // Dart's bitwise operators work on 64-bit integers on native platforms
-      // but are restricted to 32 bits on Web (Dart2JS).
-      // To ensure cross-platform correctness, we split the 64-bit payload
-      // into two 32-bit writes.
-      final high32 = (nano << 2) | (sec ~/ 0x100000000);
-      final low32 = sec & 0xFFFFFFFF;
-
-      _wr
-        ..writeUint8(fFixExt8)
-        ..writeInt8(extTypeTimestamp)
-        ..writeUint32(high32)
-        ..writeUint32(low32);
-    } else {
-      // Timestamp 96 — before 1970 or after ~2514
-      _wr
-        ..writeUint8(fExt8)
-        ..writeUint8(12)
-        ..writeInt8(extTypeTimestamp)
-        ..writeUint32(nano)
-        ..writeInt64(sec);
-    }
+    MessagePackTimestamp.encode(_wr, value);
   }
 
   /// Appends [bytes] directly to the buffer without any encoding.

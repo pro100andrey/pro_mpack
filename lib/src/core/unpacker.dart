@@ -11,6 +11,7 @@ import 'package:pro_binary/pro_binary.dart';
 
 import 'constants.dart';
 import 'exception.dart';
+import 'timestamp.dart';
 
 /// Called by the [Unpacker] when it encounters a MessagePack ext type.
 ///
@@ -367,43 +368,11 @@ extension type Unpacker._(_UnpackerState _st) {
     );
   }
 
-  /// Internal: Decodes a MessagePack timestamp extension.
+  /// Internal: Decodes a MessagePack timestamp extension via the
+  /// [MessagePackTimestamp] codec.
   @pragma('vm:prefer-inline')
-  DateTime _unpackTimestamp(int length) {
-    switch (length) {
-      case 4:
-        final seconds = _rd.readUint32();
-        return DateTime.fromMillisecondsSinceEpoch(
-          seconds * 1000,
-          isUtc: true,
-        );
-      case 8:
-        final data64 = _rd.readUint64();
-        // TS64 format: 30 bits for nanoseconds, 34 bits for seconds.
-        // nanoSeconds = data64 >> 34
-        // seconds = data64 & 0x3FFFFFFFF (34 bits mask)
-        final nanoSeconds = (data64 >> 34) & 0x3FFFFFFF;
-        final seconds = data64 & 0x3FFFFFFFF;
-        final microseconds = seconds * 1000000 + nanoSeconds ~/ 1000;
-        return DateTime.fromMicrosecondsSinceEpoch(
-          microseconds,
-          isUtc: true,
-        );
-      case 12:
-        final nanoSeconds = _rd.readUint32();
-        final seconds = _rd.readInt64();
-        final microseconds = seconds * 1000000 + nanoSeconds ~/ 1000;
-        return DateTime.fromMicrosecondsSinceEpoch(
-          microseconds,
-          isUtc: true,
-        );
-      default:
-        throw MessagePackFormatException(
-          'Invalid timestamp length: $length',
-          'Timestamps must be 4, 8, or 12 bytes long according to the spec.',
-        );
-    }
-  }
+  DateTime _unpackTimestamp(int length) =>
+      MessagePackTimestamp.decode(_rd, length);
 
   /// Rebinds the underlying [BinaryReader] to a new [buffer] without creating
   /// a new [Unpacker] instance.
