@@ -1,4 +1,16 @@
 <!-- markdownlint-disable-file MD025 -->
+# 3.1.0
+
+- **Feat**: Incremental (field-by-field) codec primitives. `Packer.packMapLength` / `packArrayLength` write just a collection header, and `Unpacker.unpackMapLength` / `unpackArrayLength` read just the count — so a schema-driven generator can encode/decode a struct one entry at a time with the typed packers, with no intermediate `Map`/`List`. `Unpacker.skip()` advances past one complete value (recursively), letting decoders drop unknown fields for forward compatibility.
+- **Feat**: `MessagePack.packAll` / `unpackAll` — registry-aware encoding/decoding of multiple values per buffer (the codec-instance counterpart of the top-level `serializeAll` / `deserializeAll`).
+- **Feat**: `Unpacker.unpackMapOf<K, V>()` — typed map decode, mirroring `unpackArrayOf<T>()`.
+- **Feat**: `Packer.encode` / `encodeAll` — static helpers that own the buffer-pool lifecycle (acquire → pack → release), used by `serialize`, `serializeAll`, `MessagePack.pack` and `packAll`.
+- **Performance**: Strings are encoded in a single UTF-8 pass via the Reserve & Backpatch pattern (previously the string was scanned twice — once to size the header, once to write). No change for short/ASCII strings; a clear win on long strings.
+- **Internal**: Behaviour-preserving consolidation of the core — one home each for the wire-format grammar (shared by `Unpacker.skip()` and `MessagePackScanner`), the Timestamp codec, the ext-header format table, and the extension registry (`ExtensionRegistry`). Encoded bytes and decoded values are byte-for-byte identical; the decode hot path is unchanged and allocation-free.
+- **Examples / Docs**: New [Incremental Codecs](example/incremental/) example and README recipe covering the field-by-field primitives.
+
+All changes are additive — no existing signatures, encoded bytes, or documented behaviour change.
+
 # 3.0.0+1
 
 - **Fix**: README.md
