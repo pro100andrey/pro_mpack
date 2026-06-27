@@ -154,6 +154,66 @@ extension type Packer._(_PackerState _st) {
   void packMap(Map<dynamic, dynamic>? value) =>
       value == null ? packNull() : _packMap(value);
 
+  /// Writes only the MessagePack array header for an array of [count] elements
+  /// (`fixarray`/`array16`/`array32`).
+  ///
+  /// The caller must then write exactly [count] values with the typed pack
+  /// methods. This is the low-level dual of [packArray] for encoding an array
+  /// element-by-element without building an intermediate collection; the bytes
+  /// are identical to [packArray] over the equivalent values.
+  ///
+  /// Throws [MessagePackSizeException] if [count] exceeds [limitUint32].
+  @pragma('vm:prefer-inline')
+  void packArrayLength(int count) {
+    switch (count) {
+      case <= 15:
+        _wr.writeUint8(fFixArrayPrefix | count);
+      case <= limitUint16:
+        _wr
+          ..writeUint8(fArray16)
+          ..writeUint16(count);
+      case <= limitUint32:
+        _wr
+          ..writeUint8(fArray32)
+          ..writeUint32(count);
+      default:
+        throw const MessagePackSizeException(
+          'Array is too big to be serialized with MessagePack.',
+          'Ensure the Iterable has no more than 4,294,967,295 elements.',
+        );
+    }
+  }
+
+  /// Writes only the MessagePack map header for a map of [count] entries
+  /// (`fixmap`/`map16`/`map32`).
+  ///
+  /// The caller must then write exactly [count] key/value pairs with the typed
+  /// pack methods. This is the low-level dual of [packMap] for encoding a map
+  /// entry-by-entry without building an intermediate collection; the bytes are
+  /// identical to [packMap] over the equivalent entries.
+  ///
+  /// Throws [MessagePackSizeException] if [count] exceeds [limitUint32].
+  @pragma('vm:prefer-inline')
+  void packMapLength(int count) {
+    switch (count) {
+      case <= 15:
+        _wr.writeUint8(fFixMapPrefix | count);
+      case <= limitUint16:
+        _wr
+          ..writeUint8(fMap16)
+          ..writeUint16(count);
+      case <= limitUint32:
+        _wr
+          ..writeUint8(fMap32)
+          ..writeUint32(count);
+      default:
+        throw const MessagePackSizeException(
+          'Map is too big to be serialized with MessagePack.',
+          'Ensure the Map has no more than 4,294,967,295 key-value pairs.',
+        );
+    }
+  }
+
   /// Packs a [DateTime] [value] using the standard MessagePack timestamp
   /// extension.
   ///
@@ -476,23 +536,7 @@ extension type Packer._(_PackerState _st) {
   void _packArray(Iterable<dynamic> value) {
     final length = value.length;
 
-    switch (length) {
-      case <= 15:
-        _wr.writeUint8(fFixArrayPrefix | length);
-      case <= limitUint16:
-        _wr
-          ..writeUint8(fArray16)
-          ..writeUint16(length);
-      case <= limitUint32:
-        _wr
-          ..writeUint8(fArray32)
-          ..writeUint32(length);
-      default:
-        throw const MessagePackSizeException(
-          'Array is too big to be serialized with MessagePack.',
-          'Ensure the Iterable has no more than 4,294,967,295 elements.',
-        );
-    }
+    packArrayLength(length);
 
     // Optimize for List to avoid iterator overhead.
     if (value is List) {
@@ -512,25 +556,7 @@ extension type Packer._(_PackerState _st) {
   /// [limitUint32].
   @pragma('vm:prefer-inline')
   void _packMap(Map<dynamic, dynamic> value) {
-    final length = value.length;
-
-    switch (length) {
-      case <= 15:
-        _wr.writeUint8(fFixMapPrefix | length);
-      case <= limitUint16:
-        _wr
-          ..writeUint8(fMap16)
-          ..writeUint16(length);
-      case <= limitUint32:
-        _wr
-          ..writeUint8(fMap32)
-          ..writeUint32(length);
-      default:
-        throw const MessagePackSizeException(
-          'Map is too big to be serialized with MessagePack.',
-          'Ensure the Map has no more than 4,294,967,295 key-value pairs.',
-        );
-    }
+    packMapLength(value.length);
 
     for (final entry in value.entries) {
       pack(entry.key);
