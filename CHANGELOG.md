@@ -1,4 +1,8 @@
 <!-- markdownlint-disable-file MD025 -->
+# 3.1.1
+
+- **Update**: Updated dependencies to the latest versions to ensure compatibility and stability.
+
 # 3.1.0
 
 - **Feat**: Incremental (field-by-field) codec primitives. `Packer.packMapLength` / `packArrayLength` write just a collection header, and `Unpacker.unpackMapLength` / `unpackArrayLength` read just the count — so a schema-driven generator can encode/decode a struct one entry at a time with the typed packers, with no intermediate `Map`/`List`. `Unpacker.skip()` advances past one complete value (recursively), letting decoders drop unknown fields for forward compatibility.
